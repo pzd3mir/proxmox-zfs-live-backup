@@ -274,9 +274,9 @@ print_failure_summary() {
 
 # Main execution function
 main() {
-    # Initialize system
-    setup_cleanup_trap
+    # Initialize system (load config first!)
     load_default_config
+    setup_cleanup_trap
 
     # Print main header
     print_main_header "🔄 ZFS BACKUP SYSTEM - MODULAR EDITION"
@@ -340,10 +340,12 @@ while [[ $# -gt 0 ]]; do
             exit 0
             ;;
         setup)
+            load_default_config
             setup_backup_credentials
             exit 0
             ;;
         test-nas)
+            load_default_config
             load_backup_credentials || exit 1
             if test_nas_connectivity; then
                 print_status "✅ NAS connectivity test passed!"
