@@ -337,21 +337,42 @@ backup_zfs_data() {
     local zfs_backup_pid=$!
     print_debug "ZFS backup process PID: $zfs_backup_pid"
 
-    # Monitor ZFS backup progress
+    # Monitor ZFS backup progress with enhanced live preview
     local progress_counter=0
+    local last_size=0
+    local start_time=$(date +%s)
+    
     while kill -0 "$zfs_backup_pid" 2>/dev/null; do
         if [ -f "$backup_file" ]; then
             local current_size=$(stat -c%s "$backup_file" 2>/dev/null || echo 0)
             if [ "$current_size" -gt 0 ]; then
                 local size_mb=$((current_size / 1024 / 1024))
-                if [ $((progress_counter % 4)) -eq 0 ]; then  # Show progress every 2 minutes
-                    print_info "=� ZFS backup progress: ${size_mb}MB written..."
+                local elapsed=$(($(date +%s) - start_time))
+                local elapsed_min=$((elapsed / 60))
+                local elapsed_sec=$((elapsed % 60))
+                
+                # Calculate transfer rate
+                local rate_mb=0
+                if [ $elapsed -gt 0 ]; then
+                    rate_mb=$((size_mb / elapsed))
+                fi
+                
+                # Show progress every 10 seconds instead of 2 minutes
+                if [ $((progress_counter % 1)) -eq 0 ]; then
+                    if [ $size_mb -ne $last_size ]; then
+                        printf "\r💾 ZFS backup: ${size_mb}MB written | ${elapsed_min}m ${elapsed_sec}s elapsed | ~${rate_mb}MB/s avg"
+                        last_size=$size_mb
+                    fi
                 fi
             fi
+        else
+            printf "\r🔄 Initializing ZFS backup stream..."
         fi
         progress_counter=$((progress_counter + 1))
-        sleep 30
+        sleep 10
     done
+    
+    echo ""  # New line after progress display
 
     # Wait for backup process to complete
     wait "$zfs_backup_pid"

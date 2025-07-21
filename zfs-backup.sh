@@ -100,16 +100,20 @@ select_backup_target() {
                     read -p "Choose backup target (1=NAS, 2=USB): " choice
                     echo ""
                     case "$choice" in
-                        1|"")
+                        1|"1")
                             print_status "✅ Selected: NAS backup"
                             BACKUP_TARGET="nas"
                             ;;
-                        2)
+                        2|"2")
                             print_status "✅ Selected: USB backup"
                             BACKUP_TARGET="usb"
                             ;;
+                        "")
+                            print_status "✅ Selected: NAS backup (default)"
+                            BACKUP_TARGET="nas"
+                            ;;
                         *)
-                            print_warning "Invalid choice, using NAS backup"
+                            print_warning "Invalid choice '$choice', using NAS backup"
                             BACKUP_TARGET="nas"
                             ;;
                     esac

@@ -104,12 +104,14 @@ EOF
         if mountpoint -q "$mount_path" 2>/dev/null; then
             print_debug "✅ NAS share mounted successfully"
             
-            # Test write access
-            if touch "$mount_path/.mount-test-$$" 2>/dev/null; then
-                rm -f "$mount_path/.mount-test-$$" 2>/dev/null
-                print_debug "✅ NAS share has write access"
+            # Test write access in the backup directory, not share root
+            local backup_test_dir="$mount_path/$NAS_BACKUP_PATH"
+            mkdir -p "$backup_test_dir" 2>/dev/null
+            if touch "$backup_test_dir/.mount-test-$$" 2>/dev/null; then
+                rm -f "$backup_test_dir/.mount-test-$$" 2>/dev/null
+                print_debug "✅ NAS share has write access to backup directory"
             else
-                print_warning "⚠️  NAS share mounted but no write access"
+                print_warning "⚠️  NAS share mounted but no write access to backup directory"
             fi
             
             return 0
