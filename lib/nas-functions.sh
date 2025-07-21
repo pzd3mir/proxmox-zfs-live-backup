@@ -30,13 +30,17 @@ test_nas_connectivity() {
     local test_result=1
     
     if mount_nas_share_to_path "$test_mount" >/dev/null 2>&1; then
-        # Test if we can actually write to the share
-        if touch "$test_mount/.write-test-$$" 2>/dev/null; then
-            rm -f "$test_mount/.write-test-$$" 2>/dev/null
+        # Create backup directory if it doesn't exist and test write access there
+        local backup_test_dir="$test_mount/$NAS_BACKUP_PATH"
+        mkdir -p "$backup_test_dir" 2>/dev/null
+        
+        # Test if we can actually write to the backup directory
+        if touch "$backup_test_dir/.write-test-$$" 2>/dev/null; then
+            rm -f "$backup_test_dir/.write-test-$$" 2>/dev/null
             test_result=0
             print_debug "NAS connectivity test: PASSED (mount and write successful)"
         else
-            print_debug "NAS connectivity test: FAILED (cannot write to share)"
+            print_debug "NAS connectivity test: FAILED (cannot write to backup directory)"
         fi
         umount "$test_mount" 2>/dev/null
     else
