@@ -13,7 +13,13 @@ NC='\033[0m'
 # Logging and output functions
 log_message() {
     local log_file="${LOG_FILE:-/var/log/zfs-backup.log}"
-    echo -e "$(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a "$log_file"
+    
+    # Create log directory if it doesn't exist
+    local log_dir=$(dirname "$log_file")
+    mkdir -p "$log_dir" 2>/dev/null || true
+    
+    # Log the message
+    echo -e "$(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a "$log_file" 2>/dev/null || echo -e "$(date '+%Y-%m-%d %H:%M:%S') - $1"
 }
 
 print_status() {
