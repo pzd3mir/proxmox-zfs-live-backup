@@ -20,35 +20,35 @@ source "${LIB_DIR}/hybrid-backup.sh"
 # Default configuration
 load_default_config() {
     # ZFS Configuration
-    ZFS_POOL="${ZFS_POOL:-rpool}"
+    export ZFS_POOL="${ZFS_POOL:-rpool}"
 
-    # NAS Configuration
-    NAS_IP="${NAS_IP:-192.168.1.100}"
-    NAS_SHARE="${NAS_SHARE:-backups}"
-    NAS_BACKUP_PATH="${NAS_BACKUP_PATH:-NAS/proxmox/system-images}"
+    # NAS Configuration  
+    export NAS_IP="${NAS_IP:-192.168.1.100}"
+    export NAS_SHARE="${NAS_SHARE:-backups}"
+    export NAS_BACKUP_PATH="${NAS_BACKUP_PATH:-NAS/proxmox/system-images}"
 
     # Backup Configuration (hybrid only)
-    BACKUP_PREFIX="${BACKUP_PREFIX:-zfs-backup}"
-    COMPRESSION="${COMPRESSION:-gzip}"
-    ENCRYPTION_ALGO="${ENCRYPTION_ALGO:-AES256}"
+    export BACKUP_PREFIX="${BACKUP_PREFIX:-zfs-backup}"
+    export COMPRESSION="${COMPRESSION:-gzip}"
+    export ENCRYPTION_ALGO="${ENCRYPTION_ALGO:-AES256}"
 
     # Timing and Behavior
-    NAS_TIMEOUT="${NAS_TIMEOUT:-30}"
-    USER_TIMEOUT="${USER_TIMEOUT:-60}"
-    AUTO_BACKUP_DELAY="${AUTO_BACKUP_DELAY:-10}"
+    export NAS_TIMEOUT="${NAS_TIMEOUT:-30}"
+    export USER_TIMEOUT="${USER_TIMEOUT:-60}"
+    export AUTO_BACKUP_DELAY="${AUTO_BACKUP_DELAY:-10}"
 
     # Paths
-    CREDENTIALS_FILE="${CREDENTIALS_FILE:-$HOME/.zfs-backup-credentials}"
-    LOG_FILE="${LOG_FILE:-${SCRIPT_DIR}/logs/zfs-backup.log}"
-    TEMP_MOUNT="${TEMP_MOUNT:-/mnt/zfs-backup-temp}"
+    export CREDENTIALS_FILE="${CREDENTIALS_FILE:-${HOME:-/root}/.zfs-backup-credentials}"
+    export LOG_FILE="${LOG_FILE:-${SCRIPT_DIR}/logs/zfs-backup.log}"
+    export TEMP_MOUNT="${TEMP_MOUNT:-/mnt/zfs-backup-temp}"
 }
 
 # Global variables
-BACKUP_TARGET=""
-SELECTED_TARGET=""
-AUTO_MODE=false
-DEBUG_MODE=true
-SNAPSHOT_NAME=""
+export BACKUP_TARGET=""
+export SELECTED_TARGET=""
+export AUTO_MODE=false
+export DEBUG_MODE=true
+export SNAPSHOT_NAME=""
 
 # Enhanced target selection with smart defaults
 select_backup_target() {
@@ -341,6 +341,7 @@ while [[ $# -gt 0 ]]; do
             ;;
         setup)
             load_default_config
+            print_debug "Setup command - CREDENTIALS_FILE: $CREDENTIALS_FILE"
             setup_backup_credentials
             exit 0
             ;;
