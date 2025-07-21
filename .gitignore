@@ -1,0 +1,34 @@
+# --- Deine Ausschlüsse ---
+CLAUDE.md
+_FORMER_OVERWHELMING_SCRIPT/
+
+# --- Python Bytecode ---
+__pycache__/
+*.py[cod]
+*$py.class
+
+# --- PyCharm Projektdateien ---
+.idea/
+
+# --- Backup & temporäre Dateien ---
+*.swp
+*.bak
+*.tmp
+*~
+
+# --- Logfiles ---
+*.log
+
+# --- Umgebungsvariablen & Secrets ---
+.env
+*.env
+secret_*.py
+
+# --- Distribution / Build (falls später relevant) ---
+build/
+dist/
+*.egg-info/
+
+# --- Sonstige Ausschlüsse ---
+.DS_Store
+Thumbs.db
