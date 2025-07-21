@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(for:*)",
+      "Bash(do echo \"Checking $script...\")",
+      "Bash(bash:*)",
+      "Bash(done)",
+      "Bash(sed:*)",
+      "Bash(do echo \"Testing $script...\")"
+    ],
+    "deny": []
+  }
+}
