@@ -85,14 +85,18 @@ select_backup_target() {
             echo "2) 💾 USB Backup - Portable, offline storage"
             echo ""
 
-            # Auto-countdown with visual feedback
+            # Enhanced auto-countdown with visual feedback
             print_info "⏰ Auto-selecting NAS backup in ${AUTO_BACKUP_DELAY} seconds..."
             echo "Press any key to choose manually, or wait for auto-start..."
-
+            
+            # Flush any buffered input before starting countdown
+            while read -r -t 0; do read -r; done
+            
             local countdown=$AUTO_BACKUP_DELAY
             while [ $countdown -gt 0 ]; do
                 printf "\r🌐 Auto-starting NAS backup in %d seconds... (press any key to choose manually)" $countdown
                 if read -t 1 -n 1 -s choice 2>/dev/null; then
+                    # User pressed a key - show manual choice menu
                     echo ""
                     echo ""
                     echo "🎯 Manual selection mode activated"
@@ -100,20 +104,16 @@ select_backup_target() {
                     read -p "Choose backup target (1=NAS, 2=USB): " choice
                     echo ""
                     case "$choice" in
-                        1|"1")
+                        1|"")
                             print_status "✅ Selected: NAS backup"
                             BACKUP_TARGET="nas"
                             ;;
-                        2|"2")
+                        2)
                             print_status "✅ Selected: USB backup"
                             BACKUP_TARGET="usb"
                             ;;
-                        "")
-                            print_status "✅ Selected: NAS backup (default)"
-                            BACKUP_TARGET="nas"
-                            ;;
                         *)
-                            print_warning "Invalid choice '$choice', using NAS backup"
+                            print_warning "Invalid choice, using NAS backup"
                             BACKUP_TARGET="nas"
                             ;;
                     esac
