@@ -8,12 +8,12 @@ USB_MOUNT_POINT="/mnt/usb-backup-auto"
 
 # List available USB drives for backup selection
 list_usb_drives() {
-    print_section_header "USB DRIVE DETECTION"
+    echo "USB DRIVE DETECTION"
+    echo "==================="
     print_info "Scanning for external USB drives..."
 
     # Get system root device to exclude it
     local root_device=$(df / | tail -1 | awk '{print $1}' | sed 's/[0-9]*$//' | sed 's|/dev/||')
-    print_debug "Root device to exclude: '$root_device'"
 
     local drive_names=()
     local count=1
@@ -28,7 +28,6 @@ list_usb_drives() {
             
             # Skip if this is the root device
             if [ "$device_name" = "$root_device" ]; then
-                print_debug "Skipping root device: $device_name"
                 continue
             fi
 
@@ -77,8 +76,7 @@ list_usb_drives() {
             return 1
         elif [[ "$selection" =~ ^[0-9]+$ ]] && [ "$selection" -ge 1 ] && [ "$selection" -lt "$count" ]; then
             export SELECTED_TARGET="${drive_names[$selection]}"
-            print_status "✅ Selected USB drive: $SELECTED_TARGET"
-            print_debug "SELECTED_TARGET variable set to: $SELECTED_TARGET"
+            print_status "[OK] Selected USB drive: $SELECTED_TARGET"
             return 0
         else
             print_error "Invalid selection: '$selection' (valid range: 1-$((count-1)))"
@@ -100,7 +98,6 @@ mount_usb_device() {
         return 1
     fi
 
-    print_debug "Mounting USB device: $usb_device"
 
     # Detect partition scheme and get the right partition
     local usb_partition=""
@@ -117,7 +114,6 @@ mount_usb_device() {
     fi
 
     # Try mounting with different filesystem types
-    print_debug "Attempting to mount $usb_partition at $USB_MOUNT_POINT"
     
     if mount_usb_partition_auto "$usb_partition" "$USB_MOUNT_POINT"; then
         print_status "USB device mounted successfully"
@@ -125,7 +121,6 @@ mount_usb_device() {
         # Test write permissions
         if touch "$USB_MOUNT_POINT/.write-test-$$" 2>/dev/null; then
             rm -f "$USB_MOUNT_POINT/.write-test-$$"
-            print_debug "USB device has write permissions"
             return 0
         else
             print_error "USB device mounted but no write permissions"
@@ -143,23 +138,17 @@ detect_usb_partition() {
     local usb_device="$1"
     local -n partition_var="$2"
     
-    print_debug "Detecting partition scheme for $usb_device"
 
     # For NVMe drives, partition naming is different
     if [[ "$usb_device" == *"nvme"* ]]; then
         partition_var="${usb_device}p1"
-        print_debug "NVMe device detected, trying partition: $partition_var"
     else
         partition_var="${usb_device}1"
-        print_debug "SATA/SCSI device detected, trying partition: $partition_var"
     fi
 
     # Check if partition exists, fall back to whole device
     if [ ! -b "$partition_var" ]; then
-        print_debug "Partition $partition_var not found, using whole device: $usb_device"
         partition_var="$usb_device"
-    else
-        print_debug "Using partition: $partition_var"
     fi
 
     # Verify the selected partition/device is actually a block device
@@ -178,7 +167,6 @@ mount_usb_partition_auto() {
     
     # Try mounting with auto-detection first
     if mount "$partition" "$mount_point" 2>/dev/null; then
-        print_debug "USB mounted successfully with auto-detection"
         return 0
     fi
 
@@ -186,9 +174,7 @@ mount_usb_partition_auto() {
     local filesystems=("ext4" "ntfs" "exfat" "vfat" "ext3" "ext2")
     
     for fs in "${filesystems[@]}"; do
-        print_debug "Trying filesystem type: $fs"
         if mount -t "$fs" "$partition" "$mount_point" 2>/dev/null; then
-            print_debug "USB mounted successfully as $fs"
             return 0
         fi
     done
@@ -202,23 +188,19 @@ unmount_usb_device() {
     local mount_point="${1:-$USB_MOUNT_POINT}"
     
     if [ ! -d "$mount_point" ]; then
-        print_debug "USB mount point does not exist: $mount_point"
         return 0
     fi
 
     if ! mountpoint -q "$mount_point" 2>/dev/null; then
-        print_debug "Path is not a USB mount point: $mount_point"
         return 0
     fi
 
-    print_debug "Unmounting USB device: $mount_point"
     
     # Sync before unmounting
     sync 2>/dev/null || true
     
     # Try gentle unmount first
     if umount "$mount_point" 2>/dev/null; then
-        print_debug "USB device unmounted successfully"
         rmdir "$mount_point" 2>/dev/null || true
         return 0
     fi
@@ -241,7 +223,6 @@ check_usb_space_requirements() {
     local available_bytes=$(df -B1 "$mount_point" | tail -1 | awk '{print $4}')
     local available_gb=$((available_bytes / 1024 / 1024 / 1024))
     
-    print_debug "USB space check: ${available_gb}GB available, ${required_gb}GB required"
 
     if [ "$available_gb" -lt "$required_gb" ]; then
         print_error "Insufficient space on USB"
@@ -263,7 +244,6 @@ validate_usb_device() {
         return 1
     fi
 
-    print_debug "Validating USB device: $usb_device"
 
     # Check if device exists
     if [ ! -b "$usb_device" ]; then
@@ -271,13 +251,11 @@ validate_usb_device() {
         return 1
     fi
 
-    print_debug "USB device validation passed"
     return 0
 }
 
 # Cleanup USB operations
 cleanup_usb_operations() {
-    print_debug "Cleaning up USB operations..."
     
     # Unmount USB devices
     unmount_usb_device "$USB_MOUNT_POINT" 2>/dev/null || true
@@ -285,5 +263,4 @@ cleanup_usb_operations() {
     # Clean up any test files
     rm -f "$USB_MOUNT_POINT/.write-test-"* 2>/dev/null || true
     
-    print_debug "USB cleanup completed"
 }

@@ -5,40 +5,30 @@
 
 # Detect system disk and EFI partition
 detect_system_components() {
-    print_debug "Starting system component detection..."
     
     local efi_partition=""
     local system_disk=""
 
     # Method 1: Check /boot/efi mount
-    print_debug "Method 1: Checking /boot/efi mount..."
     if mountpoint -q /boot/efi 2>/dev/null; then
         efi_partition=$(df /boot/efi | tail -1 | awk '{print $1}')
-        print_debug "Found EFI partition from mount: $efi_partition"
 
         # Extract system disk from EFI partition
         system_disk=$(echo "$efi_partition" | sed 's/p[0-9]*$//' | sed 's/[0-9]*$//')
-        print_debug "Extracted system disk from EFI: $system_disk"
-    else
-        print_debug "/boot/efi not mounted, trying alternative methods..."
     fi
 
     # Method 2: Find from ZFS pool if EFI method failed
     if [ -z "$system_disk" ]; then
-        print_debug "Method 2: Using ZFS pool device detection..."
         local zfs_device=$(zpool status "$ZFS_POOL" 2>/dev/null | grep -E 'nvme|sd|vd' | head -1 | awk '{print $1}')
-        print_debug "ZFS device found: $zfs_device"
 
         if [[ "$zfs_device" == *"part"* ]]; then
             # Handle complex partition names like nvme-eui.xxx-part3
             local base_device=$(echo "$zfs_device" | sed 's/-part[0-9]*$//')
-            print_debug "Base device from partition name: $base_device"
 
             # Find the actual /dev/ path via symlinks
             system_disk=$(ls -la /dev/disk/by-id/ 2>/dev/null | grep "$base_device" | grep -v "part" | awk '{print $NF}' | sed 's|.*/||' | head -1)
             if [ -n "$system_disk" ]; then
                 system_disk="/dev/$system_disk"
-                print_debug "Found system disk via symlink: $system_disk"
 
                 # Find EFI partition (usually partition 1 or 2)
                 for part_num in 1 2; do
@@ -47,7 +37,6 @@ detect_system_components() {
                         local fstype=$(blkid -o value -s TYPE "$test_part" 2>/dev/null || echo "")
                         if [[ "$fstype" == "vfat" ]]; then
                             efi_partition="$test_part"
-                            print_debug "Found EFI partition: $efi_partition (fstype: $fstype)"
                             break
                         fi
                     fi
@@ -57,15 +46,14 @@ detect_system_components() {
             # Handle regular device names
             if [[ "$zfs_device" == /dev/* ]]; then
                 system_disk=$(echo "$zfs_device" | sed 's/p[0-9]*$//' | sed 's/[0-9]*$//')
-                print_debug "System disk from regular ZFS device: $system_disk"
             fi
         fi
     fi
 
     # Method 3: Manual detection if still not found
     if [ -z "$system_disk" ] || [ -z "$efi_partition" ]; then
-        print_debug "Automatic detection failed, requesting manual input..."
-        print_section_header "= MANUAL SYSTEM DETECTION REQUIRED"
+        echo "MANUAL SYSTEM DETECTION REQUIRED"
+        echo "=================================="
         print_warning "Could not automatically detect system components"
         echo ""
         print_info "Available disks and partitions:"
@@ -120,7 +108,6 @@ detect_system_components() {
 
 # Check if boot partition is safe to backup (not actively in use)
 check_boot_partition_safety() {
-    print_debug "Checking boot partition safety for $EFI_PARTITION..."
 
     # Check if any processes are using the EFI partition
     if lsof "$EFI_PARTITION" 2>/dev/null | grep -q .; then
@@ -131,60 +118,17 @@ check_boot_partition_safety() {
 
     # Check if partition is mounted read-write
     if mount | grep "$EFI_PARTITION" | grep -q rw; then
-        print_debug "EFI partition is mounted read-write (normal)"
         return 0
     fi
 
-    print_debug "Boot partition appears safe for backup"
     return 0
 }
 
-# Validate ZFS pool exists and is accessible
-validate_zfs_pool() {
-    print_debug "Validating ZFS pool: $ZFS_POOL"
-
-    if ! command -v zpool >/dev/null 2>&1; then
-        print_error "ZFS tools not found - is ZFS installed?"
-        return 1
-    fi
-
-    if ! zpool list "$ZFS_POOL" >/dev/null 2>&1; then
-        print_error "L ZFS pool '$ZFS_POOL' not found"
-        echo ""
-        print_info "Available pools:"
-        if zpool list 2>/dev/null | grep -v "^NAME"; then
-            echo ""
-            print_info "=� To use a different pool: $0 --pool POOL_NAME"
-        else
-            print_warning "No ZFS pools found on this system"
-        fi
-        return 1
-    fi
-
-    # Check pool health
-    local pool_health=$(zpool list -H -o health "$ZFS_POOL" 2>/dev/null || echo "UNKNOWN")
-    case "$pool_health" in
-        "ONLINE")
-            print_status " ZFS pool '$ZFS_POOL' is healthy ($pool_health)"
-            ;;
-        "DEGRADED")
-            print_warning "�  ZFS pool '$ZFS_POOL' is degraded but usable"
-            ;;
-        "FAULTED"|"OFFLINE"|"UNAVAIL")
-            print_error "L ZFS pool '$ZFS_POOL' is not available ($pool_health)"
-            return 1
-            ;;
-        *)
-            print_warning "�  ZFS pool '$ZFS_POOL' status unknown: $pool_health"
-            ;;
-    esac
-
-    return 0
-}
 
 # Create backup snapshot with proper naming and error handling
 create_backup_snapshot() {
-    print_section_header "=� SNAPSHOT CREATION"
+    echo "SNAPSHOT CREATION"
+    echo "================="
     print_info "Creating ZFS snapshot for consistent backup..."
 
     local date=$(date +%Y%m%d-%H%M)
@@ -216,9 +160,8 @@ create_backup_snapshot() {
     fi
 
     # Create new snapshot
-    print_debug "Creating recursive snapshot: $SNAPSHOT_NAME"
     if ! zfs snapshot -r "$SNAPSHOT_NAME" 2>/dev/null; then
-        print_error "❌ Failed to create ZFS snapshot"
+        print_error "[ERROR] Failed to create ZFS snapshot"
         echo ""
         print_info "💡 Possible causes:"
         echo "• Insufficient pool space"
@@ -249,42 +192,6 @@ create_backup_snapshot() {
     return 0
 }
 
-# Check system requirements for backup operation
-check_system_requirements() {
-    print_debug "Checking system requirements..."
-
-    # Check if running as root (required for ZFS operations)
-    if [ "$(id -u)" -ne 0 ]; then
-        print_error "L This script must be run as root"
-        print_info "=� Try: sudo $0"
-        return 1
-    fi
-
-    # Check required commands
-    local missing_commands=()
-    
-    for cmd in zfs zpool gpg gzip tar; do
-        if ! command -v "$cmd" >/dev/null 2>&1; then
-            missing_commands+=("$cmd")
-        fi
-    done
-
-    if [ ${#missing_commands[@]} -gt 0 ]; then
-        print_error "L Missing required commands: ${missing_commands[*]}"
-        print_info "=� Install missing packages and try again"
-        return 1
-    fi
-
-    # Check for optional but recommended commands
-    for cmd in lsof blkid lsblk; do
-        if ! command -v "$cmd" >/dev/null 2>&1; then
-            print_warning "�  Optional command missing: $cmd (some features may be limited)"
-        fi
-    done
-
-    print_debug " All system requirements met"
-    return 0
-}
 
 # Get device partition naming (handles NVMe vs SATA differences)
 get_partition_name() {

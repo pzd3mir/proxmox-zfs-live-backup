@@ -23,27 +23,27 @@ log_message() {
 }
 
 print_status() {
-    echo -e "${GREEN}✅ $1${NC}"
+    echo -e "${GREEN}[OK] $1${NC}"
     log_message "STATUS: $1"
 }
 
 print_warning() {
-    echo -e "${YELLOW}⚠️  $1${NC}"
+    echo -e "${YELLOW}[WARNING] $1${NC}"
     log_message "WARNING: $1"
 }
 
 print_error() {
-    echo -e "${RED}❌ $1${NC}"
+    echo -e "${RED}[ERROR] $1${NC}"
     log_message "ERROR: $1"
 }
 
 print_info() {
-    echo -e "${BLUE}ℹ️  $1${NC}"
+    echo -e "${BLUE}[INFO] $1${NC}"
 }
 
 print_debug() {
     if [ "${DEBUG_MODE:-false}" = true ]; then
-        echo -e "${CYAN}🐛 DEBUG: $1${NC}"
+        echo -e "${CYAN}[DEBUG] $1${NC}"
         log_message "DEBUG: $1"
     fi
 }
@@ -55,42 +55,8 @@ print_main_header() {
     echo "=================================================="
 }
 
-print_section_header() {
-    echo ""
-    echo "$1"
-    echo "$(echo "$1" | sed 's/./=/g')"
-}
 
-# Progress indicators
-show_progress_spinner() {
-    local pid=$1
-    local message="$2"
-    local spinner="⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
-    local i=0
 
-    while kill -0 "$pid" 2>/dev/null; do
-        printf "\r${BLUE}${spinner:$i:1} $message${NC}"
-        i=$(( (i+1) % ${#spinner} ))
-        sleep 0.1
-    done
-    printf "\r"
-}
-
-show_countdown() {
-    local seconds="$1"
-    local message="$2"
-
-    while [ $seconds -gt 0 ]; do
-        printf "\r${CYAN}$message in %d seconds... (press any key to interrupt)${NC}" $seconds
-        if read -t 1 -n 1 -s 2>/dev/null; then
-            echo ""
-            return 1  # User interrupted
-        fi
-        seconds=$((seconds - 1))
-    done
-    echo ""
-    return 0  # Timeout reached
-}
 
 # Cleanup function
 cleanup() {
@@ -135,15 +101,16 @@ setup_cleanup_trap() {
 
 # System requirement checks
 check_system_requirements() {
-    print_section_header "🔍 SYSTEM REQUIREMENTS CHECK"
+    echo "SYSTEM REQUIREMENTS CHECK"
+    echo "========================="
 
     # Check if running as root (recommended)
     if [ "$EUID" -ne 0 ]; then
-        print_warning "⚠️  Running as non-root user"
+        print_warning "[WARNING] Running as non-root user"
         print_info "Some features may not work properly. For system backups, run as root."
         echo ""
     else
-        print_status "✅ Running with root privileges"
+        print_status "[OK] Running with root privileges"
     fi
 
     print_info "🔍 Checking required packages..."
@@ -174,17 +141,17 @@ check_system_requirements() {
         if [ "$EUID" -eq 0 ]; then
             print_info "📦 Installing required packages..."
             if apt update >/dev/null 2>&1 && apt install -y $missing_packages >/dev/null 2>&1; then
-                print_status "✅ All required packages installed"
+                print_status "[OK] All required packages installed"
             else
-                print_error "❌ Failed to install packages"
+                print_error "[ERROR] Failed to install packages"
                 return 1
             fi
         else
-            print_error "❌ Please install required packages: apt install$missing_packages"
+            print_error "[ERROR] Please install required packages: apt install$missing_packages"
             return 1
         fi
     else
-        print_status "✅ All required packages are available"
+        print_status "[OK] All required packages are available"
     fi
 
     return 0
@@ -192,11 +159,12 @@ check_system_requirements() {
 
 # ZFS pool validation
 validate_zfs_pool() {
-    print_section_header "📊 ZFS POOL VALIDATION"
+    echo "ZFS POOL VALIDATION"
+    echo "==================="
     print_info "Validating ZFS pool: $ZFS_POOL"
 
     if ! zpool list "$ZFS_POOL" >/dev/null 2>&1; then
-        print_error "❌ ZFS pool '$ZFS_POOL' not found"
+        print_error "[ERROR] ZFS pool '$ZFS_POOL' not found"
         echo ""
         echo "Available pools:"
         if zpool list 2>/dev/null; then
@@ -212,13 +180,13 @@ validate_zfs_pool() {
     local pool_health=$(zpool list -H -o health "$ZFS_POOL" 2>/dev/null)
     case "$pool_health" in
         "ONLINE")
-            print_status "✅ ZFS pool '$ZFS_POOL' is healthy (ONLINE)"
+            print_status "[OK] ZFS pool '$ZFS_POOL' is healthy (ONLINE)"
             ;;
         "DEGRADED")
-            print_warning "⚠️  ZFS pool '$ZFS_POOL' is DEGRADED but functional"
+            print_warning "[WARNING] ZFS pool '$ZFS_POOL' is DEGRADED but functional"
             ;;
         *)
-            print_error "❌ ZFS pool '$ZFS_POOL' health: $pool_health"
+            print_error "[ERROR] ZFS pool '$ZFS_POOL' health: $pool_health"
             print_warning "Pool may not be suitable for backup"
             ;;
     esac
@@ -231,44 +199,6 @@ validate_zfs_pool() {
     return 0
 }
 
-# Snapshot management
-create_backup_snapshot() {
-    print_section_header "📸 SNAPSHOT CREATION"
-    print_info "Creating ZFS snapshot for consistent backup..."
-
-    local date=$(date +%Y%m%d-%H%M)
-    local snapshot_name="$ZFS_POOL@backup-$date"
-
-    # Check if snapshot already exists
-    if zfs list "$snapshot_name" >/dev/null 2>&1; then
-        print_status "Using existing ZFS snapshot: $snapshot_name"
-        SNAPSHOT_NAME="$snapshot_name"
-        return 0
-    fi
-
-    print_debug "Creating snapshot: $snapshot_name"
-    if ! zfs snapshot -r "$snapshot_name" 2>/dev/null; then
-        print_error "❌ Failed to create ZFS snapshot"
-        print_info "Possible causes:"
-        echo "• Insufficient pool space"
-        echo "• Pool is read-only"
-        echo "• Permission issues"
-        echo "• Another backup process running"
-        return 1
-    fi
-
-    SNAPSHOT_NAME="$snapshot_name"
-    print_status "✅ Snapshot created: $SNAPSHOT_NAME"
-
-    # Verify snapshot was created successfully
-    if ! zfs list "$SNAPSHOT_NAME" >/dev/null 2>&1; then
-        print_error "❌ Snapshot verification failed"
-        return 1
-    fi
-
-    print_debug "Snapshot verified successfully"
-    return 0
-}
 
 # File size and space utilities
 format_bytes() {
@@ -300,32 +230,6 @@ check_disk_space() {
     return 0
 }
 
-# Process monitoring utilities
-monitor_background_process() {
-    local pid="$1"
-    local description="$2"
-    local file_to_monitor="$3"
-
-    print_debug "Monitoring process PID: $pid ($description)"
-
-    while kill -0 "$pid" 2>/dev/null; do
-        if [ -n "$file_to_monitor" ] && [ -f "$file_to_monitor" ]; then
-            local current_size=$(stat -c%s "$file_to_monitor" 2>/dev/null || echo 0)
-            if [ "$current_size" -gt 0 ]; then
-                local size_mb=$((current_size / 1048576))
-                echo "$(date '+%H:%M:%S') - $description: ${size_mb}MB written..."
-            fi
-        else
-            echo "$(date '+%H:%M:%S') - $description: Processing..."
-        fi
-        sleep 30
-    done
-
-    wait "$pid"
-    local exit_code=$?
-    print_debug "Process completed with exit code: $exit_code"
-    return $exit_code
-}
 
 # Safe mount/unmount utilities
 safe_mount() {

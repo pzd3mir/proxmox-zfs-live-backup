@@ -5,7 +5,8 @@
 
 # Backup hybrid system to NAS (boot partition + ZFS)
 backup_hybrid_to_nas() {
-    print_section_header "< HYBRID NAS BACKUP"
+    echo "HYBRID NAS BACKUP"
+    echo "================="
     print_status "Starting HYBRID backup to NAS (Boot + ZFS)..."
 
     local date=$(date +%Y%m%d-%H%M)
@@ -105,7 +106,8 @@ backup_hybrid_to_nas() {
     sync
     umount "$TEMP_MOUNT" 2>/dev/null
 
-    print_section_header "<� HYBRID NAS BACKUP COMPLETED!"
+    echo "HYBRID BACKUP COMPLETED!"
+    echo "========================="
     print_status "Boot partition: $boot_size (${boot_duration}s)"
     print_status "ZFS data: $zfs_size (${zfs_duration_min}m ${zfs_duration_sec}s)"
     print_status "Location: //$NAS_IP/$NAS_SHARE/$NAS_BACKUP_PATH/"
@@ -122,7 +124,8 @@ backup_hybrid_to_usb() {
         return 1
     fi
 
-    print_section_header "=� HYBRID USB BACKUP"
+    echo "HYBRID USB BACKUP"
+    echo "================="
     print_status "Starting HYBRID backup to USB: $usb_device"
 
     local date=$(date +%Y%m%d-%H%M)
@@ -212,7 +215,8 @@ backup_hybrid_to_usb() {
     sync
     umount "$usb_mount" 2>/dev/null
 
-    print_section_header "<� HYBRID USB BACKUP COMPLETED!"
+    echo "HYBRID BACKUP COMPLETED!"
+    echo "========================="
     print_status "Boot partition: $boot_size (${boot_duration}s)"
     print_status "ZFS data: $zfs_size (${zfs_duration_min}m ${zfs_duration_sec}s)"
     print_status "Location: USB drive ($usb_device)"
@@ -258,8 +262,15 @@ backup_boot_partition_files() {
         
         # Verify backup file was created and has content
         if [ -f "$backup_file" ] && [ -s "$backup_file" ]; then
-            print_debug "Boot partition backup file created successfully"
-            return 0
+            # Quick verification - test GPG decryption
+            if echo "$encryption_pass" | gpg --batch --yes --passphrase-fd 0 --decrypt "$backup_file" 2>/dev/null | head -c 1024 >/dev/null; then
+                print_debug "Boot partition backup created and verified successfully"
+                return 0
+            else
+                print_error "Boot partition backup verification failed"
+                rm -f "$backup_file" 2>/dev/null
+                return 1
+            fi
         else
             print_error "Boot partition backup file is empty or missing"
             rm -f "$backup_file" 2>/dev/null
@@ -294,93 +305,93 @@ backup_zfs_data() {
     fi
 
     # Stream ZFS backup with compression and encryption
-    local backup_success=false
-    (
-        case "$COMPRESSION" in
-            "gzip")
-                print_debug "Using gzip compression for ZFS backup"
-                if zfs send -R "$SNAPSHOT_NAME" | gzip | \
-                   gpg --cipher-algo "$ENCRYPTION_ALGO" --compress-algo 1 --symmetric --batch --yes --passphrase "$encryption_pass" \
-                   > "$backup_file"; then
-                    exit 0
-                else
-                    exit 1
-                fi
-                ;;
-            "xz")
-                print_debug "Using xz compression for ZFS backup"
-                if zfs send -R "$SNAPSHOT_NAME" | xz | \
-                   gpg --cipher-algo "$ENCRYPTION_ALGO" --compress-algo 1 --symmetric --batch --yes --passphrase "$encryption_pass" \
-                   > "$backup_file"; then
-                    exit 0
-                else
-                    exit 1
-                fi
-                ;;
-            "none")
-                print_debug "No compression for ZFS backup"
-                if zfs send -R "$SNAPSHOT_NAME" | \
-                   gpg --cipher-algo "$ENCRYPTION_ALGO" --compress-algo 1 --symmetric --batch --yes --passphrase "$encryption_pass" \
-                   > "$backup_file"; then
-                    exit 0
-                else
-                    exit 1
-                fi
-                ;;
-            *)
-                print_error "Unknown compression method: $COMPRESSION"
-                exit 1
-                ;;
-        esac
-    ) &
-
-    local zfs_backup_pid=$!
-    print_debug "ZFS backup process PID: $zfs_backup_pid"
-
-    # Monitor ZFS backup progress with enhanced live preview
-    local progress_counter=0
-    local last_size=0
-    local start_time=$(date +%s)
-    
-    while kill -0 "$zfs_backup_pid" 2>/dev/null; do
-        if [ -f "$backup_file" ]; then
-            local current_size=$(stat -c%s "$backup_file" 2>/dev/null || echo 0)
-            if [ "$current_size" -gt 0 ]; then
-                local size_mb=$((current_size / 1024 / 1024))
-                local elapsed=$(($(date +%s) - start_time))
-                local elapsed_min=$((elapsed / 60))
-                local elapsed_sec=$((elapsed % 60))
-                
-                # Calculate transfer rate
-                local rate_mb=0
-                if [ $elapsed -gt 0 ]; then
-                    rate_mb=$((size_mb / elapsed))
-                fi
-                
-                # Show progress every 10 seconds instead of 2 minutes
-                if [ $((progress_counter % 1)) -eq 0 ]; then
-                    if [ $size_mb -ne $last_size ]; then
-                        printf "\r💾 ZFS backup: ${size_mb}MB written | ${elapsed_min}m ${elapsed_sec}s elapsed | ~${rate_mb}MB/s avg"
-                        last_size=$size_mb
-                    fi
-                fi
+    case "$COMPRESSION" in
+        "lz4")
+            print_debug "Using lz4 compression for ZFS backup (fast)"
+            if command -v pv >/dev/null 2>&1; then
+                zfs send -R "$SNAPSHOT_NAME" | pv -N "ZFS backup" | lz4 | \
+                gpg --cipher-algo "$ENCRYPTION_ALGO" --compress-algo 1 --symmetric --batch --yes --passphrase "$encryption_pass" \
+                > "$backup_file"
+            else
+                printf "ZFS backup in progress"
+                zfs send -R "$SNAPSHOT_NAME" | lz4 | \
+                gpg --cipher-algo "$ENCRYPTION_ALGO" --compress-algo 1 --symmetric --batch --yes --passphrase "$encryption_pass" \
+                > "$backup_file" &
+                local pid=$!
+                while kill -0 "$pid" 2>/dev/null; do printf "."; sleep 10; done
+                wait "$pid"
+                echo " completed"
             fi
-        else
-            printf "\r🔄 Initializing ZFS backup stream..."
-        fi
-        progress_counter=$((progress_counter + 1))
-        sleep 10
-    done
-    
-    echo ""  # New line after progress display
+            ;;
+        "gzip")
+            print_debug "Using gzip compression for ZFS backup"
+            if command -v pv >/dev/null 2>&1; then
+                zfs send -R "$SNAPSHOT_NAME" | pv -N "ZFS backup" | gzip | \
+                gpg --cipher-algo "$ENCRYPTION_ALGO" --compress-algo 1 --symmetric --batch --yes --passphrase "$encryption_pass" \
+                > "$backup_file"
+            else
+                printf "ZFS backup in progress"
+                zfs send -R "$SNAPSHOT_NAME" | gzip | \
+                gpg --cipher-algo "$ENCRYPTION_ALGO" --compress-algo 1 --symmetric --batch --yes --passphrase "$encryption_pass" \
+                > "$backup_file" &
+                local pid=$!
+                while kill -0 "$pid" 2>/dev/null; do printf "."; sleep 10; done
+                wait "$pid"
+                echo " completed"
+            fi
+            ;;
+        "xz")
+            print_debug "Using xz compression for ZFS backup"
+            if command -v pv >/dev/null 2>&1; then
+                zfs send -R "$SNAPSHOT_NAME" | pv -N "ZFS backup" | xz | \
+                gpg --cipher-algo "$ENCRYPTION_ALGO" --compress-algo 1 --symmetric --batch --yes --passphrase "$encryption_pass" \
+                > "$backup_file"
+            else
+                printf "ZFS backup in progress"
+                zfs send -R "$SNAPSHOT_NAME" | xz | \
+                gpg --cipher-algo "$ENCRYPTION_ALGO" --compress-algo 1 --symmetric --batch --yes --passphrase "$encryption_pass" \
+                > "$backup_file" &
+                local pid=$!
+                while kill -0 "$pid" 2>/dev/null; do printf "."; sleep 10; done
+                wait "$pid"
+                echo " completed"
+            fi
+            ;;
+        "none")
+            print_debug "No compression for ZFS backup"
+            if command -v pv >/dev/null 2>&1; then
+                zfs send -R "$SNAPSHOT_NAME" | pv -N "ZFS backup" | \
+                gpg --cipher-algo "$ENCRYPTION_ALGO" --compress-algo 1 --symmetric --batch --yes --passphrase "$encryption_pass" \
+                > "$backup_file"
+            else
+                printf "ZFS backup in progress"
+                zfs send -R "$SNAPSHOT_NAME" | \
+                gpg --cipher-algo "$ENCRYPTION_ALGO" --compress-algo 1 --symmetric --batch --yes --passphrase "$encryption_pass" \
+                > "$backup_file" &
+                local pid=$!
+                while kill -0 "$pid" 2>/dev/null; do printf "."; sleep 10; done
+                wait "$pid"
+                echo " completed"
+            fi
+            ;;
+        *)
+            print_error "Unknown compression method: $COMPRESSION"
+            return 1
+            ;;
+    esac
 
-    # Wait for backup process to complete
-    wait "$zfs_backup_pid"
+    # Check if backup succeeded
     local backup_result=$?
 
     if [ $backup_result -eq 0 ] && [ -f "$backup_file" ] && [ -s "$backup_file" ]; then
-        print_debug "ZFS backup completed successfully"
-        return 0
+        # Quick verification - test GPG decryption
+        if echo "$encryption_pass" | gpg --batch --yes --passphrase-fd 0 --decrypt "$backup_file" 2>/dev/null | head -c 1024 >/dev/null; then
+            print_debug "ZFS backup completed and verified successfully"
+            return 0
+        else
+            print_error "ZFS backup verification failed - backup may be corrupted"
+            return 1
+        fi
     else
         print_error "ZFS backup failed with exit code: $backup_result"
         rm -f "$backup_file" 2>/dev/null
@@ -402,117 +413,47 @@ create_hybrid_restore_instructions() {
     local restore_file="$target_dir/RESTORE-HYBRID-$date.txt"
     
     cat > "$restore_file" << EOF
-= HYBRID ENCRYPTED BACKUP RESTORE INSTRUCTIONS
-===============================================
-Backup Date: $(date)
-Boot Partition File: $boot_backup_name.tar.gz.gpg ($boot_size)
-ZFS Data File: $zfs_backup_name.gz.gpg ($zfs_size)
-Total Duration: $duration
-Method: $method backup
-Pool: $ZFS_POOL
-Compression: $COMPRESSION
-Encryption: $ENCRYPTION_ALGO
+HYBRID BACKUP RESTORE INSTRUCTIONS
+==================================
+Date: $(date)
+Files: $boot_backup_name.tar.gz.gpg ($boot_size)
+       $zfs_backup_name.lz4.gpg ($zfs_size)
+Pool: $ZFS_POOL | Method: $method | Duration: $duration
 
-�  CRITICAL: You need the encryption password to restore!
+CRITICAL: You need the encryption password to restore!
 
-COMPLETE SYSTEM RESTORE (HYBRID METHOD):
-========================================
-This backup contains TWO files:
- Boot partition files: $boot_backup_name.tar.gz.gpg
- Complete ZFS pool data: $zfs_backup_name.gz.gpg
+RESTORE STEPS:
+=============
+1. Boot from Linux live USB and install tools:
+   apt update && apt install -y zfsutils-linux gnupg gdisk lz4
 
-RESTORE PROCEDURE:
-==================
-1. Boot target system from Linux live USB (Ubuntu, Debian, etc.)
-2. Install tools:
-   apt update && apt install -y zfsutils-linux gnupg pv gdisk xz-utils tar
+2. Connect backup drive and identify target disk
+   WARNING: Target disk will be COMPLETELY ERASED!
 
-3. Connect backup drive and locate both backup files
-
-4. Identify target disk (e.g., /dev/nvme0n1, /dev/sda)
-   �  WARNING: Target disk will be COMPLETELY ERASED!
-
-5. STEP 1 - Create partition table:
-   # Wipe disk completely
+3. Create partitions on target disk (replace TARGET_DISK):
    sgdisk --zap-all /dev/TARGET_DISK
-
-   # Create partitions
-   sgdisk --new=1:0:+512M --typecode=1:ef00 --change-name=1:"EFI System" /dev/TARGET_DISK
-   sgdisk --new=2:0:0 --typecode=2:bf00 --change-name=2:"ZFS Pool" /dev/TARGET_DISK
-
-   # Format EFI partition
+   sgdisk --new=1:0:+512M --typecode=1:ef00 /dev/TARGET_DISK
+   sgdisk --new=2:0:0 --typecode=2:bf00 /dev/TARGET_DISK
    mkfs.fat -F32 /dev/TARGET_DISKp1
 
-6. STEP 2 - Restore ZFS data:
-   # Create ZFS pool on second partition
+4. Restore ZFS pool:
    zpool create -f $ZFS_POOL /dev/TARGET_DISKp2
+   gpg --decrypt $zfs_backup_name.lz4.gpg | lz4 -d | zfs receive -F $ZFS_POOL
 
-   # Restore ZFS data
-   gpg --decrypt $zfs_backup_name.gz.gpg | \\
-   $([ "$COMPRESSION" = "gzip" ] && echo "gunzip" || echo "unxz") | \\
-   pv | zfs receive -F $ZFS_POOL
-
-7. STEP 3 - Restore boot files:
-   # Mount EFI partition
-   mkdir -p /mnt/efi
-   mount /dev/TARGET_DISKp1 /mnt/efi
-
-   # Restore boot files from tar backup
+5. Restore boot partition:
+   mkdir /mnt/efi && mount /dev/TARGET_DISKp1 /mnt/efi
    gpg --decrypt $boot_backup_name.tar.gz.gpg | gunzip | tar -xf - -C /mnt/efi
-
-   # Set bootfs property (find your root dataset with: zfs list | grep ROOT)
    zpool set bootfs=$ZFS_POOL/ROOT/pve-1 $ZFS_POOL
-   # Note: Replace 'pve-1' with your actual root dataset name if different
-
-   # Unmount EFI partition
    umount /mnt/efi
 
-8. Reboot and remove live USB
-9. System should boot exactly as it was when backed up
+6. Reboot and remove live USB
 
-ADVANTAGES OF HYBRID METHOD:
-============================
- Fast daily backups (only changed ZFS data)
- Safe live system backup (no boot conflicts)
- Complete bootable restore
- Small backup files (efficient compression)
- Incremental ZFS snapshots supported
+VERIFY: System boots, zpool status shows ONLINE, all VMs present
 
-VERIFICATION:
-=============
-After restore, verify:
-- System boots normally
-- All VMs and containers are present
-- ZFS pool is healthy: zpool status
-- All datasets mounted: zfs list
-
-BACKUP CONTENTS:
-================
-Boot Partition ($boot_size):
- EFI System Partition with bootloader
- GRUB configuration
- Kernel boot files
-
-ZFS Data ($zfs_size):
- Complete ZFS pool: $ZFS_POOL
- All datasets and snapshots
- Proxmox configuration
- All VMs and containers
- File permissions and attributes
-
-EMERGENCY NOTES:
-================
-- If system doesn't boot, check EFI boot entries: efibootmgr -v
-- Verify ZFS pool import: zpool import $ZFS_POOL
-- Check partition types: lsblk -f
-- Regenerate initramfs if needed: update-initramfs -u
-
-Created: $(date)
-Script: ZFS Backup System (Modular Edition)
-Boot Partition: EFI System Partition
-ZFS Pool: $ZFS_POOL
+Created by ZFS Backup System - $(date)
 EOF
 
     print_debug "Restore instructions written to: $restore_file"
     return 0
 }
+

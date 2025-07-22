@@ -6,7 +6,9 @@
       "Bash(bash:*)",
       "Bash(done)",
       "Bash(sed:*)",
-      "Bash(do echo \"Testing $script...\")"
+      "Bash(do echo \"Testing $script...\")",
+      "Bash(chmod:*)",
+      "Bash(grep:*)"
     ],
     "deny": []
   }

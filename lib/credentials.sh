@@ -8,7 +8,8 @@ NAS_PASSWORD=""
 
 # Load backup credentials from multiple sources
 load_backup_credentials() {
-    print_section_header "🔐 CREDENTIAL LOADING"
+    echo "CREDENTIAL LOADING"
+    echo "=================="
     print_info "Loading backup credentials..."
 
     print_debug "Checking credentials file: $CREDENTIALS_FILE"
@@ -45,7 +46,7 @@ load_backup_credentials() {
 
         # Validate credentials
         if [ ${#ENCRYPTION_PASS} -ge 12 ] && [ -n "$NAS_USER" ] && [ -n "$NAS_PASSWORD" ]; then
-            print_status "✅ All credentials loaded from $CREDENTIALS_FILE"
+            print_status "[OK] All credentials loaded from $CREDENTIALS_FILE"
             print_info "NAS: $NAS_USER@$NAS_IP/$NAS_SHARE/$NAS_BACKUP_PATH"
             return 0
         else
@@ -70,7 +71,7 @@ load_backup_credentials() {
         NAS_PASSWORD="${BACKUP_NAS_PASSWORD:-}"
 
         if [ -n "$NAS_USER" ] && [ -n "$NAS_PASSWORD" ]; then
-            print_status "✅ All credentials loaded from environment"
+            print_status "[OK] All credentials loaded from environment"
             return 0
         else
             print_debug "Environment variables incomplete"
@@ -86,7 +87,7 @@ load_backup_credentials() {
             return 1
         fi
     else
-        print_error "❌ Auto mode requires pre-configured credentials"
+        print_error "[ERROR] Auto mode requires pre-configured credentials"
         print_info "Setup required. Run: $0 setup"
         return 1
     fi
@@ -94,7 +95,8 @@ load_backup_credentials() {
 
 # Interactive credential setup for missing credentials
 interactive_credential_setup() {
-    print_section_header "🔐 INTERACTIVE CREDENTIAL SETUP"
+    echo "INTERACTIVE CREDENTIAL SETUP"
+    echo "============================="
     print_info "Some credentials are missing. Let's configure them now."
     echo ""
 
@@ -102,7 +104,7 @@ interactive_credential_setup() {
     if [ -z "$ENCRYPTION_PASS" ] || [ ${#ENCRYPTION_PASS} -lt 12 ]; then
         echo "🔒 Encryption Password Setup:"
         echo "============================="
-        echo "⚠️  This password protects your backup files - keep it safe!"
+        echo "[WARNING] This password protects your backup files - keep it safe!"
         echo "Requirements: Minimum 12 characters, mix of letters/numbers/symbols"
         echo ""
 
@@ -122,7 +124,7 @@ interactive_credential_setup() {
                         continue
                     else
                         ENCRYPTION_PASS="$enc_pass"
-                        print_status "✅ Strong encryption password configured"
+                        print_status "[OK] Strong encryption password configured"
                         break
                     fi
                 else
@@ -178,16 +180,16 @@ interactive_credential_setup() {
         print_info "Target: //$NAS_IP/$NAS_SHARE/$NAS_BACKUP_PATH/"
     fi
 
-    print_status "✅ Credentials configured successfully"
+    print_status "[OK] Credentials configured successfully"
 
     # Offer to save credentials
     echo ""
     read -p "Save credentials to $CREDENTIALS_FILE for future use? (y/N): " save_choice
     if [[ "$save_choice" =~ ^[Yy] ]]; then
         if save_credentials_to_file; then
-            print_status "✅ Credentials saved for future use"
+            print_status "[OK] Credentials saved for future use"
         else
-            print_warning "⚠️  Failed to save credentials, but backup can continue"
+            print_warning "[WARNING] Failed to save credentials, but backup can continue"
         fi
     fi
 
@@ -249,7 +251,8 @@ setup_backup_credentials() {
     echo ""
 
     # Get ZFS pool with auto-detection
-    print_section_header "📊 ZFS Pool Configuration"
+    echo "ZFS Pool Configuration"
+    echo "======================="
     echo "Available ZFS pools:"
     if zpool list 2>/dev/null; then
         echo ""
@@ -268,12 +271,13 @@ setup_backup_credentials() {
             return 1
         fi
     fi
-    print_status "✅ Pool: $ZFS_POOL"
+    print_status "[OK] Pool: $ZFS_POOL"
 
     # Get encryption password with validation
     echo ""
-    print_section_header "🔒 Encryption Password Setup"
-    echo "⚠️  This password protects your backup files - keep it safe!"
+    echo "Encryption Password Setup"
+    echo "========================="
+    echo "[WARNING] This password protects your backup files - keep it safe!"
     echo "Requirements: Minimum 12 characters, mix of letters/numbers/symbols"
     echo ""
 
@@ -292,14 +296,15 @@ setup_backup_credentials() {
             print_error "Password too short (minimum 12 characters). Please try again."
             continue
         else
-            print_status "✅ Strong encryption password configured"
+            print_status "[OK] Strong encryption password configured"
             break
         fi
     done
 
     # Get NAS configuration with smart defaults
     echo ""
-    print_section_header "🌐 NAS Configuration"
+    echo "NAS Configuration"
+    echo "================="
     echo "Configure your network storage for automatic backups."
     echo ""
     echo "Current defaults:"
@@ -319,7 +324,8 @@ setup_backup_credentials() {
     if [ -n "${input_path:-}" ]; then NAS_BACKUP_PATH="$input_path"; fi
 
     echo ""
-    print_section_header "🔐 NAS Authentication"
+    echo "NAS Authentication"
+    echo "=================="
     read -p "NAS Username: " nas_user
     read -s -p "NAS Password: " nas_pass
     echo ""
@@ -337,7 +343,7 @@ setup_backup_credentials() {
 
     # Save credentials
     if save_credentials_to_file; then
-        print_status "✅ Credentials saved securely to: $CREDENTIALS_FILE"
+        print_status "[OK] Credentials saved securely to: $CREDENTIALS_FILE"
     else
         print_error "Failed to save credentials"
         return 1
@@ -345,16 +351,17 @@ setup_backup_credentials() {
 
     # Test connectivity
     echo ""
-    print_section_header "🧪 CONNECTIVITY TEST"
+    echo "CONNECTIVITY TEST"
+    echo "================="
     print_info "Testing NAS connectivity with your settings..."
 
     if test_nas_connectivity; then
         echo ""
         print_main_header "🎉 SETUP COMPLETED SUCCESSFULLY!"
         echo ""
-        echo "✅ All credentials configured and tested"
-        echo "✅ NAS connectivity verified"
-        echo "✅ Ready for automated backups"
+        echo "[OK] All credentials configured and tested"
+        echo "[OK] NAS connectivity verified"
+        echo "[OK] Ready for automated backups"
         echo ""
         echo "🚀 NEXT STEPS:"
         echo "============="
@@ -369,7 +376,7 @@ setup_backup_credentials() {
         return 0
     else
         echo ""
-        print_warning "⚠️  Setup completed but connectivity test failed"
+        print_warning "[WARNING] Setup completed but connectivity test failed"
         echo ""
         echo "Possible issues:"
         echo "• Check network connectivity to NAS"
