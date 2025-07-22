@@ -313,7 +313,11 @@ backup_zfs_data() {
                 gpg --cipher-algo "$ENCRYPTION_ALGO" --compress-algo 1 --symmetric --batch --yes --passphrase "$encryption_pass" \
                 > "$backup_file"
             else
-                print_info "Starting ZFS backup with progress monitoring..."
+                # Get estimated pool size for percentage calculation
+                local pool_used_bytes=$(zfs list -H -p -o used "$ZFS_POOL" 2>/dev/null || echo "4294967296")  # Default 4GB if can't get size
+                local pool_used_gb=$((pool_used_bytes / 1024 / 1024 / 1024))
+                
+                printf "ZFS backup progress: "
                 (
                     zfs send -R "$SNAPSHOT_NAME" | lz4 | \
                     gpg --cipher-algo "$ENCRYPTION_ALGO" --compress-algo 1 --symmetric --batch --yes --passphrase "$encryption_pass" \
@@ -321,36 +325,34 @@ backup_zfs_data() {
                 ) &
                 local backup_pid=$!
                 
-                # Enhanced progress monitoring like overwhelming script
-                local last_size=0
-                local stall_count=0
-                
+                # Simple percentage-based progress
+                local counter=0
                 while kill -0 "$backup_pid" 2>/dev/null; do
                     if [ -f "$backup_file" ]; then
                         local current_size=$(stat -c%s "$backup_file" 2>/dev/null || echo 0)
-                        if [ "$current_size" -gt 0 ]; then
-                            local size_mb=$((current_size / 1024 / 1024))
-                            local progress_mb=$((current_size - last_size))
-                            
-                            if [ "$progress_mb" -gt 0 ]; then
-                                local speed_mb=$((progress_mb / 10))  # MB per 10 seconds
-                                echo "$(date '+%H:%M:%S') - ZFS backup: ${size_mb}MB written (+${progress_mb}MB, ~${speed_mb}MB/10s)"
-                                stall_count=0
-                            else
-                                echo "$(date '+%H:%M:%S') - ZFS backup: ${size_mb}MB written (processing...)"
-                                stall_count=$((stall_count + 1))
-                            fi
-                            last_size=$current_size
-                        else
-                            echo "$(date '+%H:%M:%S') - ZFS backup: Initializing..."
-                        fi
+                        local current_gb=$((current_size / 1024 / 1024 / 1024))
+                        
+                        # Calculate rough percentage (compressed, so adjust)
+                        local percentage=$((current_gb * 100 / (pool_used_gb + 1)))  
+                        if [ "$percentage" -gt 100 ]; then percentage=100; fi
+                        
+                        printf "\rZFS backup progress: %d%% (%dGB/%dGB estimated)      " "$percentage" "$current_gb" "$pool_used_gb"
                     else
-                        echo "$(date '+%H:%M:%S') - ZFS backup: Starting stream..."
+                        counter=$((counter + 1))
+                        local dots=$((counter % 4))
+                        case $dots in
+                            0) printf "\rZFS backup progress: Starting    " ;;
+                            1) printf "\rZFS backup progress: Starting.   " ;;
+                            2) printf "\rZFS backup progress: Starting..  " ;;
+                            3) printf "\rZFS backup progress: Starting... " ;;
+                        esac
                     fi
-                    sleep 10
+                    sleep 5
                 done
                 
                 wait "$backup_pid"
+                echo ""
+                echo "ZFS backup completed!"
             fi
             ;;
         "gzip")
@@ -360,7 +362,11 @@ backup_zfs_data() {
                 gpg --cipher-algo "$ENCRYPTION_ALGO" --compress-algo 1 --symmetric --batch --yes --passphrase "$encryption_pass" \
                 > "$backup_file"
             else
-                print_info "Starting ZFS backup with progress monitoring..."
+                # Get estimated pool size for percentage calculation
+                local pool_used_bytes=$(zfs list -H -p -o used "$ZFS_POOL" 2>/dev/null || echo "4294967296")  # Default 4GB
+                local pool_used_gb=$((pool_used_bytes / 1024 / 1024 / 1024))
+                
+                printf "ZFS backup progress: "
                 (
                     zfs send -R "$SNAPSHOT_NAME" | gzip | \
                     gpg --cipher-algo "$ENCRYPTION_ALGO" --compress-algo 1 --symmetric --batch --yes --passphrase "$encryption_pass" \
@@ -368,32 +374,32 @@ backup_zfs_data() {
                 ) &
                 local backup_pid=$!
                 
-                # Enhanced progress monitoring like overwhelming script  
-                local last_size=0
+                # Simple percentage-based progress
+                local counter=0
                 while kill -0 "$backup_pid" 2>/dev/null; do
                     if [ -f "$backup_file" ]; then
                         local current_size=$(stat -c%s "$backup_file" 2>/dev/null || echo 0)
-                        if [ "$current_size" -gt 0 ]; then
-                            local size_mb=$((current_size / 1024 / 1024))
-                            local progress_mb=$((current_size - last_size))
-                            
-                            if [ "$progress_mb" -gt 0 ]; then
-                                local speed_mb=$((progress_mb / 10))
-                                echo "$(date '+%H:%M:%S') - ZFS backup: ${size_mb}MB written (+${progress_mb}MB, ~${speed_mb}MB/10s)"
-                            else
-                                echo "$(date '+%H:%M:%S') - ZFS backup: ${size_mb}MB written (processing...)"
-                            fi
-                            last_size=$current_size
-                        else
-                            echo "$(date '+%H:%M:%S') - ZFS backup: Initializing..."
-                        fi
+                        local current_gb=$((current_size / 1024 / 1024 / 1024))
+                        local percentage=$((current_gb * 100 / (pool_used_gb + 1)))  
+                        if [ "$percentage" -gt 100 ]; then percentage=100; fi
+                        
+                        printf "\rZFS backup progress: %d%% (%dGB/%dGB estimated)      " "$percentage" "$current_gb" "$pool_used_gb"
                     else
-                        echo "$(date '+%H:%M:%S') - ZFS backup: Starting stream..."
+                        counter=$((counter + 1))
+                        local dots=$((counter % 4))
+                        case $dots in
+                            0) printf "\rZFS backup progress: Starting    " ;;
+                            1) printf "\rZFS backup progress: Starting.   " ;;
+                            2) printf "\rZFS backup progress: Starting..  " ;;
+                            3) printf "\rZFS backup progress: Starting... " ;;
+                        esac
                     fi
-                    sleep 10
+                    sleep 5
                 done
                 
                 wait "$backup_pid"
+                echo ""
+                echo "ZFS backup completed!"
             fi
             ;;
         "xz")

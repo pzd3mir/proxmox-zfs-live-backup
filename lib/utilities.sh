@@ -32,12 +32,14 @@ print_status() {
 
 print_warning() {
     echo -e "${YELLOW}[WARNING] $1${NC}"
-    log_message "WARNING: $1"
+    # Temporarily disable logging to debug PuTTY issue
+    # log_message "WARNING: $1"
 }
 
 print_error() {
     echo -e "${RED}[ERROR] $1${NC}"
-    log_message "ERROR: $1"
+    # Temporarily disable logging to debug PuTTY issue
+    # log_message "ERROR: $1"
 }
 
 print_info() {
@@ -47,7 +49,8 @@ print_info() {
 print_debug() {
     if [ "${DEBUG_MODE:-false}" = true ]; then
         echo -e "${CYAN}[DEBUG] $1${NC}"
-        log_message "DEBUG: $1"
+        # Temporarily disable logging to debug PuTTY issue
+        # log_message "DEBUG: $1"
     fi
 }
 
