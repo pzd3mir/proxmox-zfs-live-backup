@@ -95,25 +95,30 @@ select_backup_target() {
             local countdown=$AUTO_BACKUP_DELAY
             while [ $countdown -gt 0 ]; do
                 printf "\r🌐 Auto-starting NAS backup in %d seconds... (press any key to choose manually)" $countdown
-                if read -t 1 -n 1 -s choice 2>/dev/null; then
+                if read -t 1 -n 1 -s key_pressed 2>/dev/null; then
                     # User pressed a key - show manual choice menu
                     echo ""
                     echo ""
                     echo "🎯 Manual selection mode activated"
                     echo ""
-                    read -p "Choose backup target (1=NAS, 2=USB): " choice
+                    
+                    # Clear any remaining input
+                    while read -r -t 0; do read -r; done
+                    
+                    local user_choice=""
+                    read -p "Choose backup target (1=NAS, 2=USB): " user_choice
                     echo ""
-                    case "$choice" in
+                    case "$user_choice" in
                         1|"")
                             print_status "✅ Selected: NAS backup"
                             BACKUP_TARGET="nas"
                             ;;
                         2)
-                            print_status "✅ Selected: USB backup"
+                            print_status "✅ Selected: USB backup"  
                             BACKUP_TARGET="usb"
                             ;;
                         *)
-                            print_warning "Invalid choice, using NAS backup"
+                            print_warning "Invalid choice '$user_choice', using NAS backup"
                             BACKUP_TARGET="nas"
                             ;;
                     esac
@@ -137,9 +142,10 @@ select_backup_target() {
             echo "2) ❌ Cancel backup"
             echo ""
 
-            read -p "Continue with USB backup? (1=Yes, 2=Cancel): " choice
+            local usb_choice=""
+            read -p "Continue with USB backup? (1=Yes, 2=Cancel): " usb_choice
             echo ""
-            case "$choice" in
+            case "$usb_choice" in
                 1|"")
                     print_status "✅ Selected: USB backup"
                     BACKUP_TARGET="usb"
@@ -180,6 +186,8 @@ select_backup_target() {
 # Execute backup based on selected target
 execute_backup() {
     print_section_header "🚀 BACKUP EXECUTION"
+    print_debug "BACKUP_TARGET variable is: '$BACKUP_TARGET'"
+    print_debug "SELECTED_TARGET variable is: '$SELECTED_TARGET'"
 
     local backup_success=false
 
@@ -207,8 +215,13 @@ execute_backup() {
             ;;
         "usb")
             print_info "Starting USB hybrid backup process..."
+            print_debug "About to call list_usb_drives..."
             if list_usb_drives; then
-                if backup_hybrid_to_usb "$SELECTED_TARGET"; then
+                print_debug "USB drives listed successfully, SELECTED_TARGET: '$SELECTED_TARGET'"
+                if [ -z "$SELECTED_TARGET" ]; then
+                    print_error "❌ No USB drive selected after listing"
+                    backup_success=false
+                elif backup_hybrid_to_usb "$SELECTED_TARGET"; then
                     backup_success=true
                     print_status "✅ Hybrid USB backup completed successfully!"
                 else

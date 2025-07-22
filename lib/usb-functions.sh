@@ -69,6 +69,7 @@ list_usb_drives() {
     local max_choice=$((count-1))
     local prompt="Select drive (1-${max_choice}) or 'q' to quit: "
     
+    local selection=""
     if read -t "$USER_TIMEOUT" -p "$prompt" selection; then
         echo ""
         if [ "$selection" = "q" ] || [ "$selection" = "Q" ]; then
@@ -76,10 +77,11 @@ list_usb_drives() {
             return 1
         elif [[ "$selection" =~ ^[0-9]+$ ]] && [ "$selection" -ge 1 ] && [ "$selection" -lt "$count" ]; then
             export SELECTED_TARGET="${drive_names[$selection]}"
-            print_status "Selected: $SELECTED_TARGET"
+            print_status "✅ Selected USB drive: $SELECTED_TARGET"
+            print_debug "SELECTED_TARGET variable set to: $SELECTED_TARGET"
             return 0
         else
-            print_error "Invalid selection: $selection"
+            print_error "Invalid selection: '$selection' (valid range: 1-$((count-1)))"
             return 1
         fi
     else
