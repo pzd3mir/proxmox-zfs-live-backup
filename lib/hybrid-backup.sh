@@ -313,19 +313,44 @@ backup_zfs_data() {
                 gpg --cipher-algo "$ENCRYPTION_ALGO" --compress-algo 1 --symmetric --batch --yes --passphrase "$encryption_pass" \
                 > "$backup_file"
             else
-                printf "ZFS backup in progress"
+                print_info "Starting ZFS backup with progress monitoring..."
                 (
                     zfs send -R "$SNAPSHOT_NAME" | lz4 | \
                     gpg --cipher-algo "$ENCRYPTION_ALGO" --compress-algo 1 --symmetric --batch --yes --passphrase "$encryption_pass" \
                     > "$backup_file"
                 ) &
                 local backup_pid=$!
+                
+                # Enhanced progress monitoring like overwhelming script
+                local last_size=0
+                local stall_count=0
+                
                 while kill -0 "$backup_pid" 2>/dev/null; do
-                    sleep 5
-                    printf "."
+                    if [ -f "$backup_file" ]; then
+                        local current_size=$(stat -c%s "$backup_file" 2>/dev/null || echo 0)
+                        if [ "$current_size" -gt 0 ]; then
+                            local size_mb=$((current_size / 1024 / 1024))
+                            local progress_mb=$((current_size - last_size))
+                            
+                            if [ "$progress_mb" -gt 0 ]; then
+                                local speed_mb=$((progress_mb / 10))  # MB per 10 seconds
+                                echo "$(date '+%H:%M:%S') - ZFS backup: ${size_mb}MB written (+${progress_mb}MB, ~${speed_mb}MB/10s)"
+                                stall_count=0
+                            else
+                                echo "$(date '+%H:%M:%S') - ZFS backup: ${size_mb}MB written (processing...)"
+                                stall_count=$((stall_count + 1))
+                            fi
+                            last_size=$current_size
+                        else
+                            echo "$(date '+%H:%M:%S') - ZFS backup: Initializing..."
+                        fi
+                    else
+                        echo "$(date '+%H:%M:%S') - ZFS backup: Starting stream..."
+                    fi
+                    sleep 10
                 done
+                
                 wait "$backup_pid"
-                echo " completed"
             fi
             ;;
         "gzip")
@@ -335,19 +360,40 @@ backup_zfs_data() {
                 gpg --cipher-algo "$ENCRYPTION_ALGO" --compress-algo 1 --symmetric --batch --yes --passphrase "$encryption_pass" \
                 > "$backup_file"
             else
-                printf "ZFS backup in progress"
+                print_info "Starting ZFS backup with progress monitoring..."
                 (
                     zfs send -R "$SNAPSHOT_NAME" | gzip | \
                     gpg --cipher-algo "$ENCRYPTION_ALGO" --compress-algo 1 --symmetric --batch --yes --passphrase "$encryption_pass" \
                     > "$backup_file"
                 ) &
                 local backup_pid=$!
+                
+                # Enhanced progress monitoring like overwhelming script  
+                local last_size=0
                 while kill -0 "$backup_pid" 2>/dev/null; do
-                    sleep 5
-                    printf "."
+                    if [ -f "$backup_file" ]; then
+                        local current_size=$(stat -c%s "$backup_file" 2>/dev/null || echo 0)
+                        if [ "$current_size" -gt 0 ]; then
+                            local size_mb=$((current_size / 1024 / 1024))
+                            local progress_mb=$((current_size - last_size))
+                            
+                            if [ "$progress_mb" -gt 0 ]; then
+                                local speed_mb=$((progress_mb / 10))
+                                echo "$(date '+%H:%M:%S') - ZFS backup: ${size_mb}MB written (+${progress_mb}MB, ~${speed_mb}MB/10s)"
+                            else
+                                echo "$(date '+%H:%M:%S') - ZFS backup: ${size_mb}MB written (processing...)"
+                            fi
+                            last_size=$current_size
+                        else
+                            echo "$(date '+%H:%M:%S') - ZFS backup: Initializing..."
+                        fi
+                    else
+                        echo "$(date '+%H:%M:%S') - ZFS backup: Starting stream..."
+                    fi
+                    sleep 10
                 done
+                
                 wait "$backup_pid"
-                echo " completed"
             fi
             ;;
         "xz")

@@ -1,14 +1,14 @@
 #!/bin/bash
 # lib/utilities.sh - Common utility functions for ZFS backup system
 
-# Colors for output (disabled to prevent terminal issues)
-RED=''
-GREEN=''
-YELLOW=''
-BLUE=''
-CYAN=''
-BOLD=''
-NC=''
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+BOLD='\033[1m'
+NC='\033[0m'
 
 # Logging and output functions
 log_message() {
@@ -26,7 +26,8 @@ log_message() {
 
 print_status() {
     echo -e "${GREEN}[OK] $1${NC}"
-    log_message "STATUS: $1"
+    # Temporarily disable logging to debug PuTTY issue
+    # log_message "STATUS: $1"
 }
 
 print_warning() {
