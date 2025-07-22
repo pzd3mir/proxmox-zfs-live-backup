@@ -140,7 +140,7 @@ check_system_requirements() {
     if [ -n "$missing_packages" ]; then
         print_warning "Missing required packages:$missing_packages"
         if [ "$EUID" -eq 0 ]; then
-            print_info "📦 Installing required packages..."
+            print_info "[INSTALL] Installing required packages..."
             if apt update >/dev/null 2>&1 && apt install -y $missing_packages >/dev/null 2>&1; then
                 print_status "[OK] All required packages installed"
             else
