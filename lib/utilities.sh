@@ -1,14 +1,14 @@
 #!/bin/bash
 # lib/utilities.sh - Common utility functions for ZFS backup system
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-BOLD='\033[1m'
-NC='\033[0m'
+# Colors for output (disabled to prevent terminal issues)
+RED=''
+GREEN=''
+YELLOW=''
+BLUE=''
+CYAN=''
+BOLD=''
+NC=''
 
 # Logging and output functions
 log_message() {
@@ -395,5 +395,22 @@ show_progress_with_dots() {
         printf "."
         sleep "$interval"
     done
-    echo " completed"
+    printf " completed\n"
+}
+
+# Simple progress with immediate dots
+show_progress_simple() {
+    local message="$1"
+    local backup_file="$2"
+    local interval="${3:-5}"
+    
+    printf "%s" "$message"
+    
+    # Show immediate progress
+    while ps aux | grep -v grep | grep -q "zfs send\|lz4\|gzip\|xz\|gpg" 2>/dev/null; do
+        printf "."
+        sleep "$interval"
+    done
+    
+    printf " completed\n"
 }
