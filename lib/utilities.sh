@@ -113,7 +113,7 @@ check_system_requirements() {
         print_status "[OK] Running with root privileges"
     fi
 
-    print_info "🔍 Checking required packages..."
+    print_info "[SEARCH] Checking required packages..."
 
     local missing_packages=""
     local required_packages=(
@@ -122,6 +122,7 @@ check_system_requirements() {
         "cifs-utils:mount.cifs"
         "lsof:lsof"
         "gdisk:sgdisk"
+        "liblz4-tool:lz4"
     )
 
     for package_info in "${required_packages[@]}"; do

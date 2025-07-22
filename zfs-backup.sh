@@ -22,10 +22,11 @@ load_default_config() {
     # ZFS Configuration
     export ZFS_POOL="${ZFS_POOL:-rpool}"
 
-    # NAS Configuration  
-    export NAS_IP="${NAS_IP:-192.168.1.100}"
-    export NAS_SHARE="${NAS_SHARE:-backups}"
-    export NAS_BACKUP_PATH="${NAS_BACKUP_PATH:-NAS/proxmox/system-images}"
+    # NAS Configuration (defaults - may be overridden by credentials)
+    : "${NAS_IP:=192.168.1.100}"
+    : "${NAS_SHARE:=backups}"  
+    : "${NAS_BACKUP_PATH:=NAS/proxmox/system-images}"
+    export NAS_IP NAS_SHARE NAS_BACKUP_PATH
 
     # Backup Configuration (hybrid only)
     export BACKUP_PREFIX="${BACKUP_PREFIX:-zfs-backup}"

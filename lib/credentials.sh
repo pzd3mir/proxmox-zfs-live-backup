@@ -19,7 +19,7 @@ load_backup_credentials() {
         print_debug "Found credentials file: $CREDENTIALS_FILE"
 
         # Load encryption password
-        ENCRYPTION_PASS=$(grep "^encryption_password=" "$CREDENTIALS_FILE" 2>/dev/null | cut -d'=' -f2- || true)
+        export ENCRYPTION_PASS=$(grep "^encryption_password=" "$CREDENTIALS_FILE" 2>/dev/null | cut -d'=' -f2- || true)
 
         # Load NAS connection settings (override defaults if found)
         local file_ip=$(grep "^nas_ip=" "$CREDENTIALS_FILE" 2>/dev/null | cut -d'=' -f2- || true)
@@ -28,21 +28,21 @@ load_backup_credentials() {
 
         # Override defaults if found in file
         if [ -n "$file_ip" ]; then
-            NAS_IP="$file_ip"
+            export NAS_IP="$file_ip"
             print_debug "Using NAS IP from credentials file: $NAS_IP"
         fi
         if [ -n "$file_share" ]; then
-            NAS_SHARE="$file_share"
+            export NAS_SHARE="$file_share"
             print_debug "Using NAS share from credentials file: $NAS_SHARE"
         fi
         if [ -n "$file_path" ]; then
-            NAS_BACKUP_PATH="$file_path"
+            export NAS_BACKUP_PATH="$file_path"
             print_debug "Using NAS path from credentials file: $NAS_BACKUP_PATH"
         fi
 
         # Load NAS credentials
-        NAS_USER=$(grep "^nas_username=" "$CREDENTIALS_FILE" 2>/dev/null | cut -d'=' -f2- || true)
-        NAS_PASSWORD=$(grep "^nas_password=" "$CREDENTIALS_FILE" 2>/dev/null | cut -d'=' -f2- || true)
+        export NAS_USER=$(grep "^nas_username=" "$CREDENTIALS_FILE" 2>/dev/null | cut -d'=' -f2- || true)
+        export NAS_PASSWORD=$(grep "^nas_password=" "$CREDENTIALS_FILE" 2>/dev/null | cut -d'=' -f2- || true)
 
         # Validate credentials
         if [ ${#ENCRYPTION_PASS} -ge 12 ] && [ -n "$NAS_USER" ] && [ -n "$NAS_PASSWORD" ]; then
@@ -60,15 +60,15 @@ load_backup_credentials() {
     print_debug "Checking environment variables..."
     if [ -n "${BACKUP_ENCRYPTION_PASSWORD:-}" ] && [ ${#BACKUP_ENCRYPTION_PASSWORD} -ge 12 ]; then
         print_debug "Found encryption password in environment"
-        ENCRYPTION_PASS="$BACKUP_ENCRYPTION_PASSWORD"
+        export ENCRYPTION_PASS="$BACKUP_ENCRYPTION_PASSWORD"
 
         # Load NAS settings from environment if available
-        if [ -n "${BACKUP_NAS_IP:-}" ]; then NAS_IP="$BACKUP_NAS_IP"; fi
-        if [ -n "${BACKUP_NAS_SHARE:-}" ]; then NAS_SHARE="$BACKUP_NAS_SHARE"; fi
-        if [ -n "${BACKUP_NAS_PATH:-}" ]; then NAS_BACKUP_PATH="$BACKUP_NAS_PATH"; fi
+        if [ -n "${BACKUP_NAS_IP:-}" ]; then export NAS_IP="$BACKUP_NAS_IP"; fi
+        if [ -n "${BACKUP_NAS_SHARE:-}" ]; then export NAS_SHARE="$BACKUP_NAS_SHARE"; fi
+        if [ -n "${BACKUP_NAS_PATH:-}" ]; then export NAS_BACKUP_PATH="$BACKUP_NAS_PATH"; fi
 
-        NAS_USER="${BACKUP_NAS_USER:-}"
-        NAS_PASSWORD="${BACKUP_NAS_PASSWORD:-}"
+        export NAS_USER="${BACKUP_NAS_USER:-}"
+        export NAS_PASSWORD="${BACKUP_NAS_PASSWORD:-}"
 
         if [ -n "$NAS_USER" ] && [ -n "$NAS_PASSWORD" ]; then
             print_status "[OK] All credentials loaded from environment"
