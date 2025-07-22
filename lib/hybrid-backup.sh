@@ -325,29 +325,32 @@ backup_zfs_data() {
                 ) &
                 local backup_pid=$!
                 
-                # Simple percentage-based progress
+                # Simple percentage-based progress with granular updates
                 local counter=0
                 while kill -0 "$backup_pid" 2>/dev/null; do
                     if [ -f "$backup_file" ]; then
                         local current_size=$(stat -c%s "$backup_file" 2>/dev/null || echo 0)
-                        local current_gb=$((current_size / 1024 / 1024 / 1024))
                         
-                        # Calculate rough percentage (compressed, so adjust)
-                        local percentage=$((current_gb * 100 / (pool_used_gb + 1)))  
-                        if [ "$percentage" -gt 100 ]; then percentage=100; fi
+                        # Convert to MB for more precision, then format as GB with decimals
+                        local current_mb=$((current_size / 1024 / 1024))
+                        local current_gb_decimal=$(printf "%.2f" $(echo "scale=2; $current_mb / 1024" | bc -l 2>/dev/null || echo "0.00"))
+                        local pool_gb_decimal=$(printf "%.2f" $(echo "scale=2; $pool_used_gb" | bc -l 2>/dev/null || echo "0.00"))
                         
-                        printf "\rZFS backup progress: %d%% (%dGB/%dGB estimated)      " "$percentage" "$current_gb" "$pool_used_gb"
+                        # Calculate percentage with decimals
+                        local percentage=$(printf "%.1f" $(echo "scale=1; $current_mb * 100 / ($pool_used_gb * 1024 + 1)" | bc -l 2>/dev/null || echo "0.0"))
+                        
+                        printf "\rZFS backup progress: %s%% (%sGB/%sGB estimated)        " "$percentage" "$current_gb_decimal" "$pool_gb_decimal"
                     else
                         counter=$((counter + 1))
                         local dots=$((counter % 4))
                         case $dots in
-                            0) printf "\rZFS backup progress: Starting    " ;;
-                            1) printf "\rZFS backup progress: Starting.   " ;;
-                            2) printf "\rZFS backup progress: Starting..  " ;;
-                            3) printf "\rZFS backup progress: Starting... " ;;
+                            0) printf "\rZFS backup progress: Starting      " ;;
+                            1) printf "\rZFS backup progress: Starting.     " ;;
+                            2) printf "\rZFS backup progress: Starting..    " ;;
+                            3) printf "\rZFS backup progress: Starting...   " ;;
                         esac
                     fi
-                    sleep 5
+                    sleep 1
                 done
                 
                 wait "$backup_pid"
@@ -374,27 +377,32 @@ backup_zfs_data() {
                 ) &
                 local backup_pid=$!
                 
-                # Simple percentage-based progress
+                # Simple percentage-based progress with granular updates
                 local counter=0
                 while kill -0 "$backup_pid" 2>/dev/null; do
                     if [ -f "$backup_file" ]; then
                         local current_size=$(stat -c%s "$backup_file" 2>/dev/null || echo 0)
-                        local current_gb=$((current_size / 1024 / 1024 / 1024))
-                        local percentage=$((current_gb * 100 / (pool_used_gb + 1)))  
-                        if [ "$percentage" -gt 100 ]; then percentage=100; fi
                         
-                        printf "\rZFS backup progress: %d%% (%dGB/%dGB estimated)      " "$percentage" "$current_gb" "$pool_used_gb"
+                        # Convert to MB for precision, format as GB with decimals
+                        local current_mb=$((current_size / 1024 / 1024))
+                        local current_gb_decimal=$(printf "%.2f" $(echo "scale=2; $current_mb / 1024" | bc -l 2>/dev/null || echo "0.00"))
+                        local pool_gb_decimal=$(printf "%.2f" $(echo "scale=2; $pool_used_gb" | bc -l 2>/dev/null || echo "0.00"))
+                        
+                        # Calculate percentage with decimals
+                        local percentage=$(printf "%.1f" $(echo "scale=1; $current_mb * 100 / ($pool_used_gb * 1024 + 1)" | bc -l 2>/dev/null || echo "0.0"))
+                        
+                        printf "\rZFS backup progress: %s%% (%sGB/%sGB estimated)        " "$percentage" "$current_gb_decimal" "$pool_gb_decimal"
                     else
                         counter=$((counter + 1))
                         local dots=$((counter % 4))
                         case $dots in
-                            0) printf "\rZFS backup progress: Starting    " ;;
-                            1) printf "\rZFS backup progress: Starting.   " ;;
-                            2) printf "\rZFS backup progress: Starting..  " ;;
-                            3) printf "\rZFS backup progress: Starting... " ;;
+                            0) printf "\rZFS backup progress: Starting      " ;;
+                            1) printf "\rZFS backup progress: Starting.     " ;;
+                            2) printf "\rZFS backup progress: Starting..    " ;;
+                            3) printf "\rZFS backup progress: Starting...   " ;;
                         esac
                     fi
-                    sleep 5
+                    sleep 1
                 done
                 
                 wait "$backup_pid"

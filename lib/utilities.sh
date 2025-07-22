@@ -12,34 +12,23 @@ NC='\033[0m'
 
 # Logging and output functions
 log_message() {
-    local log_file="${LOG_FILE:-/var/log/zfs-backup.log}"
-    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
-    
-    # Create log directory if it doesn't exist
-    local log_dir=$(dirname "$log_file")
-    mkdir -p "$log_dir" 2>/dev/null || true
-    
-    # Clean the message from any control sequences and log it
-    local clean_message=$(echo "$1" | sed 's/\x1b\[[0-9;]*m//g')
-    echo "$timestamp - $clean_message" >> "$log_file" 2>/dev/null || true
+    # Completely disabled to fix PuTTY terminal issues
+    return 0
 }
 
 print_status() {
     echo -e "${GREEN}[OK] $1${NC}"
-    # Temporarily disable logging to debug PuTTY issue
-    # log_message "STATUS: $1"
+    log_message "STATUS: $1"
 }
 
 print_warning() {
     echo -e "${YELLOW}[WARNING] $1${NC}"
-    # Temporarily disable logging to debug PuTTY issue
-    # log_message "WARNING: $1"
+    log_message "WARNING: $1"
 }
 
 print_error() {
     echo -e "${RED}[ERROR] $1${NC}"
-    # Temporarily disable logging to debug PuTTY issue
-    # log_message "ERROR: $1"
+    log_message "ERROR: $1"
 }
 
 print_info() {
@@ -49,8 +38,7 @@ print_info() {
 print_debug() {
     if [ "${DEBUG_MODE:-false}" = true ]; then
         echo -e "${CYAN}[DEBUG] $1${NC}"
-        # Temporarily disable logging to debug PuTTY issue
-        # log_message "DEBUG: $1"
+        log_message "DEBUG: $1"
     fi
 }
 
