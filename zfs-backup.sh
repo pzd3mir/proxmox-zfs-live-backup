@@ -119,6 +119,13 @@ select_backup_target() {
 execute_backup() {
     echo "BACKUP EXECUTION"
     echo "================"
+    
+    # Show backup summary
+    local pool_used=$(zfs list -H -p -o used "$ZFS_POOL" 2>/dev/null | numfmt --to=iec 2>/dev/null || echo "~4GB")
+    local efi_size="~144MB"
+    echo "Backing up: EFI boot partition ($efi_size) + ZFS pool '$ZFS_POOL' ($pool_used used)"
+    echo "Target: $(echo $BACKUP_TARGET | tr '[:lower:]' '[:upper:]') backup"
+    echo ""
 
     local backup_success=false
 

@@ -34,13 +34,14 @@ list_usb_drives() {
             # Get device information
             local size=$(lsblk -d -n -o SIZE "$device" 2>/dev/null || echo "Unknown")
             local model=$(lsblk -d -n -o MODEL "$device" 2>/dev/null || echo "Unknown")
+            local fstype=$(lsblk -n -o FSTYPE "${device}1" 2>/dev/null || lsblk -n -o FSTYPE "$device" 2>/dev/null || echo "Unknown")
             
             # Check if mounted
             local mount_point=$(df 2>/dev/null | grep "$device" | awk '{print $6}' | head -1 || true)
             if [ -n "$mount_point" ]; then
-                echo "$count) $device ($size) - $model [Mounted at $mount_point]"
+                echo "$count) $device ($size $fstype) - $model [Mounted at $mount_point]"
             else
-                echo "$count) $device ($size) - $model"
+                echo "$count) $device ($size $fstype) - $model [Available]"
             fi
 
             drive_names[$count]="$device"
