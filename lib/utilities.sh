@@ -13,13 +13,15 @@ NC='\033[0m'
 # Logging and output functions
 log_message() {
     local log_file="${LOG_FILE:-/var/log/zfs-backup.log}"
+    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
     
     # Create log directory if it doesn't exist
     local log_dir=$(dirname "$log_file")
     mkdir -p "$log_dir" 2>/dev/null || true
     
-    # Log the message
-    echo -e "$(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a "$log_file" 2>/dev/null || echo -e "$(date '+%Y-%m-%d %H:%M:%S') - $1"
+    # Clean the message from any control sequences and log it
+    local clean_message=$(echo "$1" | sed 's/\x1b\[[0-9;]*m//g')
+    echo "$timestamp - $clean_message" >> "$log_file" 2>/dev/null || true
 }
 
 print_status() {
@@ -353,4 +355,45 @@ validate_directory_writable() {
 
     print_debug "Validated writable directory: $directory"
     return 0
+}
+
+# Interactive countdown timer with user interruption
+show_countdown() {
+    local seconds="$1"
+    local message="$2"
+    local default_choice="$3"
+    
+    echo "$message"
+    echo "Press any key to choose manually, or wait for auto-selection..."
+    echo ""
+    
+    local countdown=$seconds
+    while [ $countdown -gt 0 ]; do
+        printf "\rAuto-selecting in %d seconds... (press any key to choose manually)      " $countdown
+        if read -t 1 -n 1 -s 2>/dev/null; then
+            printf "\r                                                                        \r"
+            echo "Manual selection mode activated"
+            echo ""
+            return 1  # User interrupted
+        fi
+        countdown=$((countdown - 1))
+    done
+    
+    printf "\r                                                                        \r"
+    echo "Auto-selecting default option..."
+    return 0  # Timeout reached, use default
+}
+
+# Enhanced progress monitoring for commands
+show_progress_with_dots() {
+    local message="$1"
+    local pid="$2"
+    local interval="${3:-5}"
+    
+    printf "$message"
+    while kill -0 "$pid" 2>/dev/null; do
+        printf "."
+        sleep "$interval"
+    done
+    echo " completed"
 }

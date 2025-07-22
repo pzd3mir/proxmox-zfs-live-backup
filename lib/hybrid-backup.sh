@@ -313,14 +313,12 @@ backup_zfs_data() {
                 gpg --cipher-algo "$ENCRYPTION_ALGO" --compress-algo 1 --symmetric --batch --yes --passphrase "$encryption_pass" \
                 > "$backup_file"
             else
-                printf "ZFS backup in progress"
                 zfs send -R "$SNAPSHOT_NAME" | lz4 | \
                 gpg --cipher-algo "$ENCRYPTION_ALGO" --compress-algo 1 --symmetric --batch --yes --passphrase "$encryption_pass" \
                 > "$backup_file" &
                 local pid=$!
-                while kill -0 "$pid" 2>/dev/null; do printf "."; sleep 10; done
+                show_progress_with_dots "ZFS backup in progress" "$pid" 5
                 wait "$pid"
-                echo " completed"
             fi
             ;;
         "gzip")
@@ -330,14 +328,12 @@ backup_zfs_data() {
                 gpg --cipher-algo "$ENCRYPTION_ALGO" --compress-algo 1 --symmetric --batch --yes --passphrase "$encryption_pass" \
                 > "$backup_file"
             else
-                printf "ZFS backup in progress"
                 zfs send -R "$SNAPSHOT_NAME" | gzip | \
                 gpg --cipher-algo "$ENCRYPTION_ALGO" --compress-algo 1 --symmetric --batch --yes --passphrase "$encryption_pass" \
                 > "$backup_file" &
                 local pid=$!
-                while kill -0 "$pid" 2>/dev/null; do printf "."; sleep 10; done
+                show_progress_with_dots "ZFS backup in progress" "$pid" 5
                 wait "$pid"
-                echo " completed"
             fi
             ;;
         "xz")
@@ -347,14 +343,12 @@ backup_zfs_data() {
                 gpg --cipher-algo "$ENCRYPTION_ALGO" --compress-algo 1 --symmetric --batch --yes --passphrase "$encryption_pass" \
                 > "$backup_file"
             else
-                printf "ZFS backup in progress"
                 zfs send -R "$SNAPSHOT_NAME" | xz | \
                 gpg --cipher-algo "$ENCRYPTION_ALGO" --compress-algo 1 --symmetric --batch --yes --passphrase "$encryption_pass" \
                 > "$backup_file" &
                 local pid=$!
-                while kill -0 "$pid" 2>/dev/null; do printf "."; sleep 10; done
+                show_progress_with_dots "ZFS backup in progress" "$pid" 5
                 wait "$pid"
-                echo " completed"
             fi
             ;;
         "none")
@@ -364,14 +358,12 @@ backup_zfs_data() {
                 gpg --cipher-algo "$ENCRYPTION_ALGO" --compress-algo 1 --symmetric --batch --yes --passphrase "$encryption_pass" \
                 > "$backup_file"
             else
-                printf "ZFS backup in progress"
                 zfs send -R "$SNAPSHOT_NAME" | \
                 gpg --cipher-algo "$ENCRYPTION_ALGO" --compress-algo 1 --symmetric --batch --yes --passphrase "$encryption_pass" \
                 > "$backup_file" &
                 local pid=$!
-                while kill -0 "$pid" 2>/dev/null; do printf "."; sleep 10; done
+                show_progress_with_dots "ZFS backup in progress" "$pid" 5
                 wait "$pid"
-                echo " completed"
             fi
             ;;
         *)

@@ -81,13 +81,14 @@ select_backup_target() {
         echo "1) NAS Backup (recommended)"
         echo "2) USB Backup"
         echo ""
-        echo "Selection timeout: ${USER_TIMEOUT}s"
-        if read -t "$USER_TIMEOUT" -p "Select target (1-2, default 1): " choice; then
-            echo ""
-        else
-            echo ""
-            print_info "Selection timeout - using default (NAS)"
+        
+        # Show countdown timer
+        if show_countdown "$USER_TIMEOUT" "Auto-selecting NAS backup in ${USER_TIMEOUT} seconds..."; then
+            # Timeout reached - use default (NAS)
             choice=""
+        else
+            # User interrupted - ask for manual selection
+            read -p "Select target (1-2, default 1): " choice
         fi
         
         case "$choice" in
@@ -96,13 +97,14 @@ select_backup_target() {
         esac
     else
         echo "Only USB backup available"
-        echo "Selection timeout: ${USER_TIMEOUT}s"
-        if read -t "$USER_TIMEOUT" -p "Continue with USB backup? (y/n): " confirm; then
-            echo ""
-        else
-            echo ""
-            print_info "Selection timeout - assuming 'yes'"
+        
+        # Show countdown timer for USB backup
+        if show_countdown "$USER_TIMEOUT" "Auto-continuing with USB backup in ${USER_TIMEOUT} seconds..."; then
+            # Timeout reached - use USB backup
             confirm="y"
+        else
+            # User interrupted - ask for confirmation
+            read -p "Continue with USB backup? (y/n): " confirm
         fi
         case "$confirm" in
             n|N) print_info "Backup cancelled"; exit 0 ;;
