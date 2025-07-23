@@ -603,16 +603,17 @@ main() {
         echo "✅ All encryption and compression layers work"
         echo "✅ ZFS stream format is valid"
         echo "✅ Source: $(echo $BACKUP_SOURCE | tr '[:lower:]' '[:upper:]') backup verified"
-    elif [ $tests_passed -ge 3 ]; then
-        print_warning "Most tests passed ($tests_passed/$tests_total)"
-        echo ""
-        echo "⚠️  Backup is likely good, but some advanced tests failed"
-        echo "✅ Should still work for restore testing"
     else
-        print_error "Multiple tests failed ($tests_passed/$tests_total)"
+        print_error "BACKUP INTEGRITY FAILED! ($tests_passed/$tests_total)"
         echo ""
-        echo "❌ Backup may be corrupted or have issues"
-        echo "❌ Consider creating a new backup before testing restore"
+        echo "❌ This backup is CORRUPTED or INCOMPLETE"
+        echo "❌ DO NOT use this backup for restore operations"
+        echo "❌ All integrity tests must pass for a backup to be reliable"
+        echo ""
+        echo "🚨 CRITICAL: Create a new backup immediately!"
+        echo "   - Incomplete backups cannot restore your system"
+        echo "   - Failed compression means data corruption"
+        echo "   - Use only backups that pass ALL tests"
     fi
     
     echo ""

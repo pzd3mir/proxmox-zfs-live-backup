@@ -14,7 +14,7 @@ NC='\033[0m'
 
 print_status() { echo -e "${GREEN} $1${NC}"; }
 print_error() { echo -e "${RED} $1${NC}"; }
-print_warning() { echo -e "${YELLOW}  $1${NC}"; }
+print_warning() { echo -e "${YELLOW}ï¿½ $1${NC}"; }
 print_info() { echo -e "${BLUE}i $1${NC}"; }
 
 # Configuration
@@ -72,7 +72,7 @@ check_live_system() {
     
     # Check for required tools
     local missing_tools=()
-    for tool in zfs zpool gpg sgdisk mkfs.fat tar; do
+    for tool in zfs zpool gpg sgdisk mkfs.fat tar lz4; do
         if ! command -v "$tool" >/dev/null 2>&1; then
             missing_tools+=("$tool")
         fi
@@ -80,7 +80,7 @@ check_live_system() {
     
     if [ ${#missing_tools[@]} -gt 0 ]; then
         print_error "Missing required tools: ${missing_tools[*]}"
-        print_info "Install with: apt update && apt install -y zfsutils-linux gnupg gdisk dosfstools tar"
+        print_info "Install with: apt update && apt install -y zfsutils-linux gnupg gdisk dosfstools tar liblz4-tool"
         exit 1
     fi
     
@@ -321,7 +321,7 @@ find_backup_files() {
                 if [[ "$basename" == boot-partition-* ]]; then
                     boot_found="$file"
                     echo "   - Boot partition: $basename ($size)"
-                elif [[ "$basename" == *backup* ]] || [[ "$basename" == *zfs* ]]; then
+                elif [[ "$basename" == *backup* ]] || [[ "$basename" == *zfs* ]] || [[ "$basename" == zfs-backup-* ]]; then
                     zfs_found="$file"
                     echo "   - ZFS data: $basename ($size)"
                 fi
@@ -345,11 +345,13 @@ find_backup_files() {
                 
                 if [[ "$basename" == boot-partition-* ]]; then
                     BOOT_BACKUP_FILE="$file"
-                elif [[ "$basename" == *backup* ]] || [[ "$basename" == *zfs* ]]; then
+                elif [[ "$basename" == *backup* ]] || [[ "$basename" == *zfs* ]] || [[ "$basename" == zfs-backup-* ]]; then
                     ZFS_BACKUP_FILE="$file"
                     
-                    # Detect compression type from filename
-                    if [[ "$basename" == *.xz.gpg ]]; then
+                    # Detect compression type from filename (new framework uses lz4 by default)
+                    if [[ "$basename" == *.lz4.gpg ]]; then
+                        COMPRESSION_TYPE="lz4"
+                    elif [[ "$basename" == *.xz.gpg ]]; then
                         COMPRESSION_TYPE="xz"
                     else
                         COMPRESSION_TYPE="gzip"
@@ -543,6 +545,7 @@ restore_zfs_pool() {
     
     local decompression_cmd
     case "$COMPRESSION_TYPE" in
+        "lz4") decompression_cmd="lz4 -d" ;;
         "gzip") decompression_cmd="gunzip" ;;
         "xz") decompression_cmd="unxz" ;;
         *) print_error "Unknown compression: $COMPRESSION_TYPE"; return 1 ;;
