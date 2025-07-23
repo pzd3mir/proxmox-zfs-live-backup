@@ -12,8 +12,16 @@ list_usb_drives() {
     echo "==================="
     print_info "Scanning for external USB drives..."
 
-    # Get system root device to exclude it
-    local root_device=$(df / | tail -1 | awk '{print $1}' | sed 's/[0-9]*$//' | sed 's|/dev/||')
+    # Get system root device to exclude it (works with ZFS)
+    local root_device=""
+    if command -v zpool >/dev/null 2>&1; then
+        # For ZFS systems, get the actual device from zpool status
+        root_device=$(zpool status rpool 2>/dev/null | grep -E "nvme|sd" | head -1 | awk '{print $1}' | sed 's/[0-9]*$//' | sed 's|/dev/||' || echo "")
+    fi
+    # Fallback to traditional method if ZFS detection fails
+    if [ -z "$root_device" ]; then
+        root_device=$(df / | tail -1 | awk '{print $1}' | sed 's/[0-9]*$//' | sed 's|/dev/||')
+    fi
 
     local drive_names=()
     local count=1
@@ -34,7 +42,7 @@ list_usb_drives() {
             # Get device information
             local size=$(lsblk -d -n -o SIZE "$device" 2>/dev/null || echo "Unknown")
             local model=$(lsblk -d -n -o MODEL "$device" 2>/dev/null || echo "Unknown")
-            local fstype=$(lsblk -n -o FSTYPE "${device}1" 2>/dev/null || lsblk -n -o FSTYPE "$device" 2>/dev/null || echo "Unknown")
+            local fstype=$(lsblk -n -o FSTYPE "${device}1" 2>/dev/null | head -1 | tr -d '\n' || echo "Unknown")
             
             # Check if mounted
             local mount_point=$(df 2>/dev/null | grep "$device" | awk '{print $6}' | head -1 || true)
