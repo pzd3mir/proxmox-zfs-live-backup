@@ -80,7 +80,7 @@ backup_hybrid_to_nas() {
 
     # STEP 2: Backup ZFS data
     print_status "=� Step 2: Streaming ZFS backup..."
-    local zfs_backup_file="$backup_dir/$zfs_backup_name.gz.gpg"
+    local zfs_backup_file="$backup_dir/$zfs_backup_name.lz4.gpg"
     print_debug "ZFS backup file: $zfs_backup_file"
 
     local zfs_start_time=$(date +%s)
@@ -100,10 +100,26 @@ backup_hybrid_to_nas() {
 
     print_status " ZFS backup completed in ${zfs_duration_min}m ${zfs_duration_sec}s (${zfs_size})"
 
+    # Verify backup completed successfully (fix for NAS corruption issue)
+    print_info "Verifying backup integrity..."
+    if echo "$encryption_pass" | gpg --batch --yes --passphrase-fd 0 --decrypt "$zfs_backup_file" 2>/dev/null | head -c 1024 >/dev/null; then
+        print_status "Backup verification successful"
+    else
+        print_error "Backup verification failed - trying again after delay"
+        sleep 5
+        if echo "$encryption_pass" | gpg --batch --yes --passphrase-fd 0 --decrypt "$zfs_backup_file" 2>/dev/null | head -c 1024 >/dev/null; then
+            print_status "Backup verification successful after retry"
+        else
+            print_error "Backup verification failed - backup is corrupted"
+            return 1
+        fi
+    fi
+
     # Create comprehensive restore instructions
     create_hybrid_restore_instructions "$backup_dir" "$boot_backup_name" "$zfs_backup_name" "$boot_size" "$zfs_size" "${zfs_duration_min}m ${zfs_duration_sec}s" "NAS"
 
     sync
+    sleep 3  # Allow network buffers to flush
     umount "$TEMP_MOUNT" 2>/dev/null
 
     echo "HYBRID BACKUP COMPLETED!"
@@ -190,7 +206,7 @@ backup_hybrid_to_usb() {
 
     # STEP 2: Backup ZFS data
     print_status "=� Step 2: Streaming ZFS backup..."
-    local zfs_backup_file="$usb_mount/$zfs_backup_name.gz.gpg"
+    local zfs_backup_file="$usb_mount/$zfs_backup_name.lz4.gpg"
 
     local zfs_start_time=$(date +%s)
 
